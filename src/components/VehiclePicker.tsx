@@ -1,20 +1,18 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Camera, Car, History, ScanLine, Trash2, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Camera, Car, History, Trash2, X } from 'lucide-react';
 import { isVinShaped, normalizeVin, vinCheckDigitOk } from '../lib/vin';
 import { rememberResearch, researchVin, vehicleFromDecode } from '../lib/research';
-import { COMMON_MAKES, vehicleKey, vehicleSubtitle, vehicleTitle, type Vehicle } from '../lib/vehicle';
+import { vehicleKey, vehicleSubtitle, vehicleTitle, type Vehicle } from '../lib/vehicle';
 import { useVehicle } from '../lib/vehicleStore';
 import { errorText } from '../lib/errors';
-import { Button, cx, ErrorNote, Field, Input, Notice, Select } from './ui';
+import { Button, cx, ErrorNote, Field, Input, Notice } from './ui';
+import { VehicleSelects } from './VehicleSelects';
 
 /**
  * Pick the vehicle on the lift: decode a VIN (typed or scanned from the door
- * jamb barcode), or enter year / make / model by hand. Recent vehicles are one
- * tap away.
+ * jamb barcode), or choose year / make / model / trim / engine from the
+ * catalog dropdowns. Recent vehicles are one tap away.
  */
-
-const THIS_YEAR = new Date().getFullYear();
-const YEARS = Array.from({ length: THIS_YEAR + 2 - 1981 }, (_, i) => String(THIS_YEAR + 1 - i));
 
 type BarcodeDetectorLike = { detect: (src: CanvasImageSource) => Promise<{ rawValue: string }[]> };
 type BarcodeDetectorCtor = new (opts: { formats: string[] }) => BarcodeDetectorLike;
@@ -106,12 +104,8 @@ function VinScanner({ onVin, onClose }: { onVin: (vin: string) => void; onClose:
 
 export function VehiclePicker({ onPicked }: { onPicked?: (v: Vehicle) => void }) {
   const { recent, setVehicle, forgetRecent, vehicle: current } = useVehicle();
-  const [mode, setMode] = useState<'vin' | 'ymm'>('vin');
+  const [mode, setMode] = useState<'vin' | 'ymm'>(current && !current.vin ? 'ymm' : 'vin');
   const [vin, setVin] = useState(current?.vin ?? '');
-  const [year, setYear] = useState(current && !current.vin ? current.year : '');
-  const [make, setMake] = useState(current && !current.vin ? current.make : '');
-  const [model, setModel] = useState(current && !current.vin ? current.model : '');
-  const [engine, setEngine] = useState(current && !current.vin ? (current.engine ?? '') : '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
@@ -139,16 +133,6 @@ export function VehiclePicker({ onPicked }: { onPicked?: (v: Vehicle) => void })
     } finally {
       setBusy(false);
     }
-  };
-
-  const submitYmm = (e: FormEvent) => {
-    e.preventDefault();
-    if (!/^\d{4}$/.test(year) || !make.trim() || !model.trim()) {
-      setError('Pick the year, then type the make and model.');
-      return;
-    }
-    setError(null);
-    pick({ year, make: make.trim(), model: model.trim(), engine: engine.trim() || undefined });
   };
 
   return (
@@ -219,38 +203,7 @@ export function VehiclePicker({ onPicked }: { onPicked?: (v: Vehicle) => void })
           <p className="text-xs text-slate-500">Decoded by NHTSA. Brings in the recalls and complaints for this vehicle too.</p>
         </form>
       ) : (
-        <form onSubmit={submitYmm} className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Year">
-              <Select value={year} onChange={(e) => setYear(e.target.value)}>
-                <option value="">Year</option>
-                {YEARS.map((y) => (
-                  <option key={y} value={y}>
-                    {y}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Make">
-              <Input value={make} onChange={(e) => setMake(e.target.value)} list="apdata-makes" placeholder="Ford" autoComplete="off" />
-              <datalist id="apdata-makes">
-                {COMMON_MAKES.map((m) => (
-                  <option key={m} value={m} />
-                ))}
-              </datalist>
-            </Field>
-          </div>
-          <Field label="Model" hint="As NHTSA writes it, so recalls match: F-150, Silverado 1500, Camry, CR-V.">
-            <Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="F-150" autoComplete="off" />
-          </Field>
-          <Field label="Engine (optional)" hint="Helps match fixes and specs: 3.5L V6 Turbo, 5.3L V8, 2.0L I4.">
-            <Input value={engine} onChange={(e) => setEngine(e.target.value)} placeholder="3.5L V6 Turbo" autoComplete="off" />
-          </Field>
-          {error && <ErrorNote message={error} />}
-          <Button type="submit" variant="primary" icon={<ScanLine className="h-4 w-4" />} className="w-full">
-            Use this vehicle
-          </Button>
-        </form>
+        <VehicleSelects initial={current && !current.vin ? current : null} onPick={pick} />
       )}
 
       {recent.length > 0 && (

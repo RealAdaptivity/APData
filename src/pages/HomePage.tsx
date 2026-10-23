@@ -208,7 +208,9 @@ function Dashboard({ vehicle }: { vehicle: Vehicle }) {
               </div>
             ))}
           </dl>
-          <p className="text-[11px] text-slate-500">Decoded from the VIN by NHTSA vPIC.</p>
+          <p className="text-[11px] text-slate-500">
+            {vehicle.vin ? 'Decoded from the VIN by NHTSA vPIC.' : 'From the vehicle catalog: NHTSA vPIC, checked against EPA fueleconomy.gov.'}
+          </p>
         </Card>
       )}
 
