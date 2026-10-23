@@ -59,7 +59,11 @@ export function SignInPage({ notice }: { notice: string | null }) {
             <Input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
           </Field>
           {error && <ErrorNote message={error} />}
-          {resetSent && <Notice tone="blue">Check your email for a password reset link.</Notice>}
+          {resetSent && (
+            <Notice tone="blue">
+              Check your email for a reset link. It opens the Adaptivity portal to choose a new password — then come back here and sign in with it.
+            </Notice>
+          )}
           <Button type="submit" variant="primary" loading={busy} icon={<Lock className="h-4 w-4" />} className="w-full">
             Sign in
           </Button>
