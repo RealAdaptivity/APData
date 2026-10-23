@@ -76,9 +76,38 @@ project (see `.env.example`).
 
 ## Deploying
 
-Pushes to `main` deploy to GitHub Pages (`.github/workflows/deploy.yml`).
-Turn it on once in **Settings → Pages → Source: GitHub Actions**. Pull
-requests run lint, tests and the build (`.github/workflows/ci.yml`).
+AP Data lives at **https://apdatagroup.com**, served by GitHub Pages.
+Pushes to `main` deploy it (`.github/workflows/deploy.yml`); pull requests
+run lint, tests and the build (`.github/workflows/ci.yml`).
+
+One-time setup:
+
+1. **GitHub → Settings → Pages**: Source **GitHub Actions**. Custom domain
+   **apdatagroup.com**, then tick **Enforce HTTPS** once the certificate is
+   issued (can take up to a day after DNS is in place). With an Actions
+   deploy the domain is kept in this setting, not in a CNAME file.
+2. **DNS at the registrar for apdatagroup.com**:
+
+   | Type | Name | Value |
+   | --- | --- | --- |
+   | A | `@` | `185.199.108.153` |
+   | A | `@` | `185.199.109.153` |
+   | A | `@` | `185.199.110.153` |
+   | A | `@` | `185.199.111.153` |
+   | AAAA | `@` | `2606:50c0:8000::153` |
+   | AAAA | `@` | `2606:50c0:8001::153` |
+   | AAAA | `@` | `2606:50c0:8002::153` |
+   | AAAA | `@` | `2606:50c0:8003::153` |
+   | CNAME | `www` | `realadaptivity.github.io` |
+
+   GitHub then sends `www.apdatagroup.com` to `apdatagroup.com`.
+3. Optional but recommended: **verify the domain** for the RealAdaptivity
+   organization (GitHub org Settings → Pages → Add a verified domain), so no
+   other GitHub account can claim it.
+
+Nothing changes in Supabase for the domain: sign-in is email and password,
+the edge functions accept any origin, and "Forgot password" emails go
+through the Adaptivity portal, which already handles them.
 
 The AP Data tables are already applied to the Supabase project (migrations
 `20261023204924_ap_data_repair_information` and

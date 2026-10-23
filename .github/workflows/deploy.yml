@@ -1,9 +1,11 @@
-# Publishes AP Data to GitHub Pages on every push to main.
+# Publishes AP Data to GitHub Pages on every push to main, served at
+# https://apdatagroup.com.
 #
-# One-time setup: repo Settings → Pages → Source: "GitHub Actions".
-# The app routes with the URL hash and builds with a relative base, so it
-# works at https://realadaptivity.github.io/APData/ or on a custom domain
-# without changes.
+# One-time setup (see README → Deploying): Settings → Pages → Source:
+# "GitHub Actions", and Custom domain: apdatagroup.com. With an Actions
+# deploy the domain lives in that setting; a CNAME file is not used.
+# The app routes with the URL hash and builds with a relative base, so the
+# same build also works at https://realadaptivity.github.io/APData/.
 name: Deploy AP Data to GitHub Pages
 
 on:
