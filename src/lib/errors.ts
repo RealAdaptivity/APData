@@ -11,7 +11,7 @@ export type DbErrorLike = { code?: string; message?: string; details?: string | 
 
 export const SETUP_MESSAGE =
   'AP Data’s shop database is not set up yet. Apply the AP Data migration ' +
-  '(20261023200000_ap_data_repair_information.sql in the AdaptivityPerformance repo) to the Supabase project.';
+  '(20261023204924_ap_data_repair_information.sql in the AdaptivityPerformance repo) to the Supabase project.';
 
 export function isMissingSchema(e: DbErrorLike | null | undefined): boolean {
   if (!e) return false;

@@ -39,11 +39,13 @@ them for next time.
 - **Supabase** — the AdaptivityPerformance project
   (`qqyairzymqpkbfxobztx`), shared with the website and the tech and
   customer apps. Sign-in, data and file storage.
-  - Tables come from the migration
-    `supabase/migrations/20261023200000_ap_data_repair_information.sql` in
-    the **AdaptivityPerformance** repo, which owns that project's migration
+  - Tables come from the migrations
+    `supabase/migrations/20261023204924_ap_data_repair_information.sql` and
+    `20261023205001_ap_data_verify_spec_staff_only.sql` in the
+    **AdaptivityPerformance** repo, which owns that project's migration
     history. Everything is staff-only by row-level security: admins and techs
-    read and add; the author or an admin edits and deletes.
+    read and add; the author or an admin edits and deletes. Triggers keep
+    authorship and spec verification from being rewritten.
   - NHTSA lookups go through the existing `vehicle-research` edge function
     (NHTSA sends no CORS headers, so a browser cannot ask it directly).
 - `src/lib/vehicleLaborRate.ts` is a copy of the website's rate rules so
@@ -78,5 +80,7 @@ Pushes to `main` deploy to GitHub Pages (`.github/workflows/deploy.yml`).
 Turn it on once in **Settings → Pages → Source: GitHub Actions**. Pull
 requests run lint, tests and the build (`.github/workflows/ci.yml`).
 
-Before the first use, apply the AP Data migration to the Supabase project.
-The About screen (menu → About AP Data) shows whether each table is ready.
+The AP Data tables are already applied to the Supabase project (migrations
+`20261023204924_ap_data_repair_information` and
+`20261023205001_ap_data_verify_spec_staff_only`). The About screen (menu →
+About AP Data) shows whether each table is reachable.
