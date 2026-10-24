@@ -1,9 +1,10 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { BookOpen, ChevronDown, ChevronRight, Pencil, Plus, ScanLine, Search, ThumbsUp, Trash2 } from 'lucide-react';
+import { BookOpen, MapPin, ChevronDown, ChevronRight, Pencil, Plus, ScanLine, Search, ThumbsUp, Trash2 } from 'lucide-react';
 import { CODE_RANGES, describeCode, lookupCode, normalizeCode, parseCodes, searchCodes } from '../lib/dtc';
 import { DTC_ENTRIES, SEVERITY_LABEL, type DtcEntry, type Severity } from '../data/dtcLibrary';
 import { ARTICLE_BY_SLUG } from '../data/articles';
 import { systemInfo } from '../data/systems';
+import { componentsForCode } from '../data/locations';
 import { useAsync } from '../lib/useAsync';
 import { useVehicle } from '../lib/vehicleStore';
 import { useStaff } from '../lib/auth';
@@ -332,6 +333,7 @@ export function CodeDetailPage({ code: raw }: { code: string }) {
   const entry = lookupCode(code);
   const structure = describeCode(code)!;
   const articles = (entry?.articles ?? []).map((s) => ARTICLE_BY_SLUG.get(s)).filter(Boolean);
+  const locations = componentsForCode(code).slice(0, 4);
 
   return (
     <Page
@@ -411,6 +413,24 @@ export function CodeDetailPage({ code: raw }: { code: string }) {
           {structure.scope === 'generic' && (
             <p className="text-[13px] text-slate-400">This generic code is not in AP Data’s library yet. Check the service information, then add what you learn to the shop code book.</p>
           )}
+        </Section>
+      )}
+
+      {locations.length > 0 && (
+        <Section title="Where to look" aside="Component locations">
+          <ul className="-mx-2 space-y-1">
+            {locations.map((l) => (
+              <li key={l.id}>
+                <Link to={`/locations/${l.id}`} className="flex items-start gap-3 rounded-xl px-2 py-2 hover:bg-white/5">
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+                  <span className="min-w-0">
+                    <span className="block text-[14px] text-slate-200">{l.name}</span>
+                    <span className="line-clamp-1 block text-xs text-slate-500">{l.where}</span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
         </Section>
       )}
 

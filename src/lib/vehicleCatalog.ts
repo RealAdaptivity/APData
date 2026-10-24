@@ -26,14 +26,17 @@
 import { engineFacts, norm } from './vehicle.ts';
 import { ROAD_MAKES } from '../data/roadMakes.ts';
 
-export type CatalogSource = 'vpic' | 'epa';
+/** vpic: the keyless NHTSA catalog. epa: fueleconomy.gov. nhtsa: NHTSA itself, through the vpic-catalog edge function. */
+export type CatalogSource = 'vpic' | 'epa' | 'nhtsa';
 
 export type MakeChoice = {
   id: string;
   name: string;
   /** light: cars, SUVs, pickups, vans. truck: commercial trucks. other: a year outside the road-make table. */
-  kind: 'light' | 'truck' | 'other';
+  kind: 'light' | 'truck' | 'motorcycle' | 'rv' | 'other';
   source: CatalogSource;
+  /** For source 'nhtsa': the make to ask NHTSA for, the make names to keep, and the vehicle type. */
+  nhtsa?: { make: string; names: string[]; type?: 'motorcycle' };
   /** EPA's spelling of the make, when it differs from `name`. */
   epa?: string;
 };
@@ -115,6 +118,25 @@ export function parseTrims(json: unknown): TrimChoice[] {
   return uniqueBy(
     list.filter((t) => t.name),
     (t) => t.id
+  ).sort(byName);
+}
+
+/**
+ * The models in a vpic-catalog answer ({ models: [{ make, model }] }) under the
+ * make names asked for: NHTSA matches the make loosely, so "thor" also brings
+ * back Thorp Equipment's trailers.
+ */
+export function parseNhtsaModels(json: unknown, names: string[]): ModelChoice[] {
+  const keep = new Set(names.map(norm));
+  const list = rows(isRow(json) ? json.models : undefined)
+    .filter((r) => keep.has(norm(text(r.make))))
+    .map((r): ModelChoice => {
+      const name = text(r.model);
+      return { id: norm(name), name, source: 'nhtsa' };
+    });
+  return uniqueBy(
+    list.filter((m) => m.name),
+    (m) => m.id
   ).sort(byName);
 }
 
@@ -324,16 +346,17 @@ export function roadMakesFor(year: string, vpicMakes: MakeChoice[]): MakeChoice[
   const used = new Set<string>();
   return brands
     .map((b): MakeChoice => {
-      const names = [b.name, b.epa, ...(b.vpic ?? [])].filter((n): n is string => !!n).map(norm);
+      const names = b.nhtsa ? [] : [b.name, b.epa, ...(b.vpic ?? [])].filter((n): n is string => !!n).map(norm);
       const hit = names.map((n) => byName.get(n)).find((m) => m && !used.has(m.id));
       if (hit) used.add(hit.id);
+      if (b.nhtsa) return { id: `nhtsa:${norm(b.name)}`, name: b.name, kind: b.kind, source: 'nhtsa', nhtsa: b.nhtsa };
       const epa = b.kind === 'light' && b.epa ? { epa: b.epa } : {};
       if (hit) return { id: hit.id, name: b.name, kind: b.kind, source: 'vpic', ...epa };
       // NHTSA's catalog lacks it (Scion, Roush…) or is unreachable: EPA's lists for a car brand,
       // and for a truck brand a typed model.
       return b.kind === 'light'
         ? { id: b.epa ?? b.name, name: b.name, kind: 'light', source: 'epa', ...epa }
-        : { id: norm(b.name), name: b.name, kind: 'truck', source: 'vpic' };
+        : { id: norm(b.name), name: b.name, kind: b.kind, source: 'vpic' };
     })
     .sort(byNameOrder);
 }
@@ -400,6 +423,20 @@ function writeCache(url: string, v: unknown) {
   }
 }
 
+/** Asks the vpic-catalog edge function; set by the app (src/api/catalog.ts), which holds the signed-in client. */
+let nhtsaAsk: ((body: Record<string, string>) => Promise<unknown>) | null = null;
+
+export function setNhtsaAsk(ask: (body: Record<string, string>) => Promise<unknown>) {
+  nhtsaAsk = ask;
+}
+
+/** An `nhtsa:models?make=…&year=…&type=…` address, answered by the edge function. */
+async function askNhtsa(url: string): Promise<unknown> {
+  if (!nhtsaAsk) throw new Error('The NHTSA catalog is not connected.');
+  const params = new URLSearchParams(url.slice(url.indexOf('?') + 1));
+  return nhtsaAsk(Object.fromEntries(params));
+}
+
 /** This visit's answers (the only cache when storage is blocked), and requests still on the way. */
 const answers = new Map<string, Promise<unknown>>();
 
@@ -411,7 +448,12 @@ export const getJson: GetJson = (url) => {
   const p =
     cached !== undefined
       ? Promise.resolve(cached)
-      : (async () => {
+      : url.startsWith('nhtsa:')
+        ? askNhtsa(url).then((json) => {
+            writeCache(url, json);
+            return json;
+          })
+        : (async () => {
           const ctrl = new AbortController();
           const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
           try {
@@ -450,6 +492,10 @@ export async function loadMakes(year: string, get: GetJson = getJson): Promise<M
 }
 
 export async function loadModels(year: string, make: MakeChoice, get: GetJson = getJson): Promise<ModelChoice[]> {
+  if (make.source === 'nhtsa' && make.nhtsa) {
+    const { make: m, names, type } = make.nhtsa;
+    return parseNhtsaModels(await get(`nhtsa:models?make=${q(m)}&year=${q(year)}${type ? `&type=${q(type)}` : ''}`), names);
+  }
   if (make.source === 'vpic') {
     try {
       const list = parseModels(await get(`${VPIC}/models?make=${q(make.id)}&year=${q(year)}`));
@@ -510,7 +556,8 @@ export async function loadEngines(
     }
   };
   const epaFor = async (): Promise<EpaModelOptions[]> => {
-    if (isFleetTrim(trim?.name)) return [];
+    // EPA rates cars and light trucks only.
+    if (isFleetTrim(trim?.name) || make.source === 'nhtsa' || make.kind === 'motorcycle' || make.kind === 'rv') return [];
     try {
       return await epaOptions(year, make, model, siblings, get);
     } catch {

@@ -8,6 +8,7 @@ import {
   FileText,
   Gauge,
   ListChecks,
+  MapPin,
   ScanLine,
   Search,
   ShieldAlert,
@@ -31,6 +32,7 @@ import { ARTICLES } from '../data/articles';
 import { DTC_ENTRIES } from '../data/dtcLibrary';
 import { LABOR_JOBS } from '../data/laborJobs';
 import { VehiclePicker } from '../components/VehiclePicker';
+import { COMPONENT_LOCATIONS } from '../data/locations';
 import { Button, Card, cx, Input, Notice, Page } from '../components/ui';
 
 type Counts = {
@@ -190,6 +192,7 @@ function Dashboard({ vehicle }: { vehicle: Vehicle }) {
           sub={c?.specs ? `${c.specs.verified} verified by a second tech` : 'Torque, fluids, capacities'}
         />
         <Tile to="/labor" icon={<Clock className="h-4 w-4" />} title="Labor guide" value={LABOR_JOBS.length} sub="Jobs with book time and real shop times" />
+        <Tile to="/locations" icon={<MapPin className="h-4 w-4" />} title="Locations" value={COMPONENT_LOCATIONS.length} sub="Where parts are, cylinder and bank layout" />
         <Tile to="/files" icon={<Camera className="h-4 w-4" />} title="Shop files" value={dash(c?.files)} sub="Component photos, diagrams, PDFs" />
         <Tile to="/notes" icon={<StickyNote className="h-4 w-4" />} title="Shop notes" value={dash(c?.notes)} sub="Gotchas and part numbers" />
         <Tile to="/codes" icon={<ScanLine className="h-4 w-4" />} title="Trouble codes" value={DTC_ENTRIES.length} sub="Code library + shop code book" />

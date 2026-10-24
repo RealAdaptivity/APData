@@ -8,9 +8,11 @@ import { vehicleKey, vehicleTitle, type Vehicle } from '../lib/vehicle';
 import { SYSTEMS, systemInfo } from '../data/systems';
 import { ACCEPTED_TYPES, deleteRepairFile, fileUrl, filesForVehicle, prettySize, uploadRepairFile, type FileForVehicle, type FileInput } from '../api/files';
 import { NeedVehicle } from '../components/NeedVehicle';
+import type { Route } from '../lib/router';
 import { Badge, Button, Card, Empty, ErrorNote, Field, Input, Loading, Notice, Page, Select, Textarea, cx, shortDate } from '../components/ui';
 
-function Thumb({ f }: { f: FileForVehicle }) {
+/** A file's thumbnail: the image itself, or an icon for PDFs and HEIC photos. */
+export function Thumb({ f }: { f: FileForVehicle }) {
   const [url, setUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const isImage = f.mime_type.startsWith('image/') && !/heic|heif/.test(f.mime_type);
@@ -41,11 +43,13 @@ function Thumb({ f }: { f: FileForVehicle }) {
   return url ? <img src={url} alt={f.title} className="h-full w-full object-cover" loading="lazy" /> : <div className="h-full w-full animate-pulse bg-white/5" />;
 }
 
-function UploadForm({ vehicle, onDone }: { vehicle: Vehicle; onDone: () => void }) {
+type Prefill = { title?: string; system?: string; note?: string };
+
+function UploadForm({ vehicle, onDone, prefill }: { vehicle: Vehicle; onDone: () => void; prefill?: Prefill }) {
   const [file, setFile] = useState<File | null>(null);
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [system, setSystem] = useState('engine');
+  const [title, setTitle] = useState(prefill?.title ?? '');
+  const [description, setDescription] = useState(prefill?.note ?? '');
+  const [system, setSystem] = useState(prefill?.system ?? 'engine');
   const [scope, setScope] = useState<FileInput['scope']>('model');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -129,16 +133,19 @@ function UploadForm({ vehicle, onDone }: { vehicle: Vehicle; onDone: () => void 
   );
 }
 
-export function FilesPage() {
+/** #/files, or #/files?add=1&title=…&system=… to open the upload form filled in (from a location page). */
+export function FilesPage({ route }: { route?: Route }) {
   const { vehicle } = useVehicle();
   if (!vehicle) return <NeedVehicle title="Shop files" why="Files are kept per make and model: component photos, diagrams and PDFs." />;
-  return <Files key={vehicleKey(vehicle)} vehicle={vehicle} />;
+  const q = route?.query;
+  const prefill = q?.get('add') ? { title: q.get('title') ?? undefined, system: q.get('system') ?? undefined, note: q.get('note') ?? undefined } : undefined;
+  return <Files key={vehicleKey(vehicle)} vehicle={vehicle} prefill={prefill} />;
 }
 
-function Files({ vehicle }: { vehicle: Vehicle }) {
+function Files({ vehicle, prefill }: { vehicle: Vehicle; prefill?: Prefill }) {
   const staff = useStaff();
   const files = useAsync(() => filesForVehicle(vehicle), [vehicleKey(vehicle)]);
-  const [uploading, setUploading] = useState(false);
+  const [uploading, setUploading] = useState(!!prefill);
   const [error, setError] = useState<string | null>(null);
 
   const open = async (f: FileForVehicle) => {
@@ -181,6 +188,7 @@ function Files({ vehicle }: { vehicle: Vehicle }) {
       {uploading && (
         <UploadForm
           vehicle={vehicle}
+          prefill={prefill}
           onDone={() => {
             setUploading(false);
             files.reload();
