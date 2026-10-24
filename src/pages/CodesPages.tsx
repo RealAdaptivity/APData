@@ -1,10 +1,12 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { BookOpen, MapPin, ChevronDown, ChevronRight, Pencil, Plus, ScanLine, Search, ThumbsUp, Trash2 } from 'lucide-react';
-import { CODE_RANGES, describeCode, lookupCode, normalizeCode, parseCodes, searchCodes } from '../lib/dtc';
-import { DTC_ENTRIES, SEVERITY_LABEL, type DtcEntry, type Severity } from '../data/dtcLibrary';
+import { BookOpen, MapPin, Wrench, ChevronDown, ChevronRight, Pencil, Plus, ScanLine, Search, ThumbsUp, Trash2 } from 'lucide-react';
+import { CODE_RANGES, allEntries, describeCode, isMakeEntry, lookupCode, normalizeCode, parseCodes, searchCodes } from '../lib/dtc';
+import { makeEntriesFor, type MakeDtcEntry } from '../data/dtcMakeCodes';
+import { SEVERITY_LABEL, type DtcEntry, type Severity } from '../data/dtcLibrary';
 import { ARTICLE_BY_SLUG } from '../data/articles';
 import { systemInfo } from '../data/systems';
 import { componentsForCode } from '../data/locations';
+import { faultsForCode } from '../data/faults';
 import { useAsync } from '../lib/useAsync';
 import { useVehicle } from '../lib/vehicleStore';
 import { useStaff } from '../lib/auth';
@@ -39,12 +41,17 @@ const SEVERITY_TONE: Record<Severity, 'slate' | 'amber' | 'orange' | 'red'> = {
   critical: 'red',
 };
 
-function CodeRow({ e }: { e: DtcEntry }) {
+const rowKey = (e: DtcEntry | MakeDtcEntry) => (isMakeEntry(e) ? `${e.code}|${e.makeLabel}` : e.code);
+
+function CodeRow({ e }: { e: DtcEntry | MakeDtcEntry }) {
   return (
     <li>
       <Link to={`/codes/${e.code}`} className="flex items-center gap-3 px-3 py-2.5 hover:bg-white/5">
         <span className="w-14 shrink-0 font-mono text-sm font-bold text-brand-soft">{e.code}</span>
-        <span className="min-w-0 flex-1 text-[13px] leading-snug text-slate-200">{e.title}</span>
+        <span className="min-w-0 flex-1 text-[13px] leading-snug text-slate-200">
+          {e.title}
+          {isMakeEntry(e) && <span className="block text-[11px] text-slate-500">{e.makeLabel}</span>}
+        </span>
         <ChevronRight className="h-4 w-4 shrink-0 text-slate-600" />
       </Link>
     </li>
@@ -52,10 +59,13 @@ function CodeRow({ e }: { e: DtcEntry }) {
 }
 
 export function CodesPage() {
+  const { vehicle } = useVehicle();
+  const make = vehicle?.make ?? null;
+  const library = useMemo(() => allEntries(make), [make]);
   const [q, setQ] = useState('');
   const [open, setOpen] = useState<string | null>(null);
   const query = q.trim();
-  const results = useMemo(() => searchCodes(query), [query]);
+  const results = useMemo(() => searchCodes(query, 50, make), [query, make]);
   const pasted = useMemo(() => parseCodes(query), [query]);
   const exact = normalizeCode(query);
   const shop = useAsync(() => (query.length >= 2 ? searchShopDefinitions(query) : Promise.resolve([] as ShopCode[])), [query]);
@@ -67,7 +77,18 @@ export function CodesPage() {
   };
 
   return (
-    <Page title="Trouble codes" subtitle={`${DTC_ENTRIES.length} generic OBD-II codes with causes and test steps, plus the shop’s own code book for manufacturer codes.`}>
+    <Page
+      title="Trouble codes"
+      subtitle={`${library.length} codes — engine, ABS, chassis, body and network — with causes and test steps${make ? `, including ${make} meanings` : ''}, plus the shop’s own code book.`}
+    >
+      <Link to="/faults" className="flex items-center gap-3 rounded-2xl border border-white/10 bg-panel p-3.5 hover:bg-panel-2">
+        <Wrench className="h-5 w-5 shrink-0 text-brand" />
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold text-white">No code? Start from the problem</span>
+          <span className="block text-xs text-slate-400">ABS light, pulls, clunks, battery drain, no-crank, A/C warm and more</span>
+        </span>
+        <ChevronRight className="h-4 w-4 text-slate-500" />
+      </Link>
       <form onSubmit={submit} role="search">
         <label className="relative block">
           <span className="sr-only">Search codes</span>
@@ -100,7 +121,7 @@ export function CodesPage() {
               </LinkButton>
             </Card>
           )}
-          {exact && !lookupCode(exact) && (
+          {exact && !lookupCode(exact, make) && (
             <Link to={`/codes/${exact}`} className="block rounded-2xl border border-white/10 bg-panel p-4 hover:bg-panel-2">
               <div className="font-mono text-lg font-bold text-brand-soft">{exact}</div>
               <div className="text-[13px] text-slate-300">{describeCode(exact)?.scopeText}</div>
@@ -128,7 +149,7 @@ export function CodesPage() {
             <Section title="Code library" aside={`${results.length} match${results.length === 1 ? '' : 'es'}`}>
               <ul className="-mx-3 divide-y divide-white/5">
                 {results.map((e) => (
-                  <CodeRow key={e.code} e={e} />
+                  <CodeRow key={rowKey(e)} e={e} />
                 ))}
               </ul>
             </Section>
@@ -145,7 +166,7 @@ export function CodesPage() {
       ) : (
         <Card className="divide-y divide-white/5 p-0">
           {CODE_RANGES.map((r) => {
-            const list = DTC_ENTRIES.filter((e) => e.code.startsWith(r.prefix));
+            const list = library.filter((e) => e.code.startsWith(r.prefix));
             if (!list.length) return null;
             const isOpen = open === r.prefix;
             return (
@@ -165,7 +186,7 @@ export function CodesPage() {
                 {isOpen && (
                   <ul className="divide-y divide-white/5 border-t border-white/5 bg-ink/40">
                     {list.map((e) => (
-                      <CodeRow key={e.code} e={e} />
+                      <CodeRow key={rowKey(e)} e={e} />
                     ))}
                   </ul>
                 )}
@@ -330,10 +351,12 @@ export function CodeDetailPage({ code: raw }: { code: string }) {
       </Page>
     );
   }
-  const entry = lookupCode(code);
+  const entry = lookupCode(code, vehicle?.make);
+  const otherMakes = makeEntriesFor(code).filter((e) => e !== entry);
   const structure = describeCode(code)!;
   const articles = (entry?.articles ?? []).map((s) => ARTICLE_BY_SLUG.get(s)).filter(Boolean);
   const locations = componentsForCode(code).slice(0, 4);
+  const faults = faultsForCode(code);
 
   return (
     <Page
@@ -348,8 +371,15 @@ export function CodeDetailPage({ code: raw }: { code: string }) {
       <div className="flex flex-wrap gap-2">
         {entry && <Badge tone={SEVERITY_TONE[entry.severity]}>{SEVERITY_LABEL[entry.severity]}</Badge>}
         {entry && <Badge>{systemInfo(entry.system).label}</Badge>}
+        {isMakeEntry(entry) && <Badge tone="green">{entry.makeLabel} meaning</Badge>}
         <Badge tone={structure.scope === 'generic' ? 'blue' : 'amber'}>{structure.scope === 'generic' ? 'Generic code' : 'Manufacturer code'}</Badge>
       </div>
+
+      {!entry && otherMakes.length > 0 && (
+        <Notice tone="amber">
+          {vehicle ? `AP Data has no ${vehicle.make} meaning for ${code}.` : 'Choose a vehicle to see its make’s meaning.'} What it means on other makes is below — check the shop code book or service information for this one.
+        </Notice>
+      )}
 
       {entry?.varies && (
         <Notice tone="amber">This code’s meaning differs between manufacturers. Confirm it in the factory service information for the make, and record it in the shop code book below.</Notice>
@@ -434,6 +464,21 @@ export function CodeDetailPage({ code: raw }: { code: string }) {
         </Section>
       )}
 
+      {faults.length > 0 && (
+        <Section title="Related faults">
+          <ul className="-mx-2 space-y-1">
+            {faults.map((f) => (
+              <li key={f.id}>
+                <Link to={`/faults/${f.id}`} className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-white/5">
+                  <Wrench className="h-4 w-4 shrink-0 text-brand" />
+                  <span className="text-[14px] text-slate-200">{f.title}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
+
       {articles.length > 0 && (
         <Section title="How-to articles">
           <ul className="-mx-2 space-y-1">
@@ -443,6 +488,19 @@ export function CodeDetailPage({ code: raw }: { code: string }) {
                   <BookOpen className="h-4 w-4 shrink-0 text-brand" />
                   <span className="text-[14px] text-slate-200">{a!.title}</span>
                 </Link>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
+
+      {otherMakes.length > 0 && (
+        <Section title={entry ? 'On other makes' : 'What it means by make'}>
+          <ul className="space-y-2">
+            {otherMakes.map((m) => (
+              <li key={m.makeLabel} className="text-[14px]">
+                <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">{m.makeLabel}</span>
+                <span className="text-slate-200">{m.title}</span>
               </li>
             ))}
           </ul>

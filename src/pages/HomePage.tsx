@@ -14,6 +14,7 @@ import {
   ShieldAlert,
   StickyNote,
   ThumbsUp,
+  Wrench,
 } from 'lucide-react';
 import { useVehicle } from '../lib/vehicleStore';
 import { useAsync } from '../lib/useAsync';
@@ -30,9 +31,11 @@ import { filesForVehicle } from '../api/files';
 import { listVehicleNotes } from '../api/notes';
 import { ARTICLES } from '../data/articles';
 import { DTC_ENTRIES } from '../data/dtcLibrary';
+import { MAKE_DTC_ENTRIES } from '../data/dtcMakeCodes';
 import { LABOR_JOBS } from '../data/laborJobs';
 import { VehiclePicker } from '../components/VehiclePicker';
 import { COMPONENT_LOCATIONS } from '../data/locations';
+import { FAULTS } from '../data/faults';
 import { Button, Card, cx, Input, Notice, Page } from '../components/ui';
 
 type Counts = {
@@ -192,10 +195,11 @@ function Dashboard({ vehicle }: { vehicle: Vehicle }) {
           sub={c?.specs ? `${c.specs.verified} verified by a second tech` : 'Torque, fluids, capacities'}
         />
         <Tile to="/labor" icon={<Clock className="h-4 w-4" />} title="Labor guide" value={LABOR_JOBS.length} sub="Jobs with book time and real shop times" />
+        <Tile to="/faults" icon={<Wrench className="h-4 w-4" />} title="Faults" value={FAULTS.length} sub="No code? Start from the complaint" />
         <Tile to="/locations" icon={<MapPin className="h-4 w-4" />} title="Locations" value={COMPONENT_LOCATIONS.length} sub="Where parts are, cylinder and bank layout" />
         <Tile to="/files" icon={<Camera className="h-4 w-4" />} title="Shop files" value={dash(c?.files)} sub="Component photos, diagrams, PDFs" />
         <Tile to="/notes" icon={<StickyNote className="h-4 w-4" />} title="Shop notes" value={dash(c?.notes)} sub="Gotchas and part numbers" />
-        <Tile to="/codes" icon={<ScanLine className="h-4 w-4" />} title="Trouble codes" value={DTC_ENTRIES.length} sub="Code library + shop code book" />
+        <Tile to="/codes" icon={<ScanLine className="h-4 w-4" />} title="Trouble codes" value={DTC_ENTRIES.length + MAKE_DTC_ENTRIES.length} sub="Engine, ABS, body, network + shop code book" />
       </div>
 
       {vehicle.details && vehicle.details.length > 0 && (
@@ -254,7 +258,7 @@ export function HomePage() {
         <Card>
           <BookOpen className="mb-2 h-5 w-5 text-brand" />
           <div className="text-sm font-semibold text-white">Repair info</div>
-          <p className="text-[13px] text-slate-400">{DTC_ENTRIES.length} trouble codes, {ARTICLES.length} tests and procedures, and the shop’s own write-ups.</p>
+          <p className="text-[13px] text-slate-400">{DTC_ENTRIES.length + MAKE_DTC_ENTRIES.length} trouble codes, {FAULTS.length} faults, {ARTICLES.length} tests and procedures, and the shop’s own write-ups.</p>
         </Card>
         <Card>
           <Clock className="mb-2 h-5 w-5 text-brand" />

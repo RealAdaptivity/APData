@@ -4,6 +4,9 @@ import { useAsync } from '../lib/useAsync';
 import { isMissingSchema } from '../lib/errors';
 import { ARTICLES } from '../data/articles';
 import { DTC_ENTRIES } from '../data/dtcLibrary';
+import { MAKE_DTC_ENTRIES } from '../data/dtcMakeCodes';
+import { FAULTS } from '../data/faults';
+import { COMPONENT_LOCATIONS } from '../data/locations';
 import { LABOR_JOBS } from '../data/laborJobs';
 import { Card, Page, Section } from '../components/ui';
 
@@ -35,7 +38,7 @@ export function AboutPage() {
             <span className="font-semibold text-white">NHTSA</span> — VIN decoding, safety recalls and owner complaints, free public data from the U.S. National Highway Traffic Safety Administration, looked up live.
           </li>
           <li>
-            <span className="font-semibold text-white">AP Data library</span> — {DTC_ENTRIES.length} generic OBD-II trouble codes, {ARTICLES.length} diagnostic tests and procedures, and a {LABOR_JOBS.length}-job labor catalog, written for AP Data from general shop practice.
+            <span className="font-semibold text-white">AP Data library</span> — {DTC_ENTRIES.length} generic trouble codes (engine, ABS and chassis, body and network) and {MAKE_DTC_ENTRIES.length} make-specific ABS, body and network codes for Ford, GM, Toyota, Chrysler, Nissan and Hyundai/Kia; {FAULTS.length} faults to diagnose without a code; {COMPONENT_LOCATIONS.length} component locations; {ARTICLES.length} diagnostic tests and procedures; and a {LABOR_JOBS.length}-job labor catalog, written for AP Data from general shop practice.
           </li>
           <li>
             <span className="font-semibold text-white">Adaptivity techs</span> — confirmed fixes, shop procedures, specs, labor times, photos and notes, added by the techs who did the work. This part grows every week the shop uses it.

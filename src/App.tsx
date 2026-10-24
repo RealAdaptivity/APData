@@ -17,6 +17,7 @@ import { FilesPage } from './pages/FilesPage';
 import { NotesPage } from './pages/NotesPage';
 import { SearchPage } from './pages/SearchPage';
 import { AboutPage } from './pages/AboutPage';
+import { FaultDetailPage, FaultsPage } from './pages/FaultsPages';
 import { EngineLayoutPage, LocationDetailPage, LocationsPage } from './pages/LocationsPages';
 
 /** The route table. Paths live in the URL hash: #/codes/P0300. */
@@ -50,6 +51,8 @@ function screen(route: Route): ReactNode {
       return b === 'estimate' ? <EstimatePage /> : <LaborJobPage key={b} code={b} />;
     case 'files':
       return <FilesPage key={route.query.toString()} route={route} />;
+    case 'faults':
+      return b ? <FaultDetailPage key={b} id={b} /> : <FaultsPage />;
     case 'locations':
       if (!b) return <LocationsPage />;
       return b === 'engine' ? <EngineLayoutPage /> : <LocationDetailPage key={b} id={b} />;

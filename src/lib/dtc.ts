@@ -5,6 +5,7 @@
  */
 
 import { DTC_ENTRIES, DTC_LIBRARY, type DtcEntry } from '../data/dtcLibrary.ts';
+import { MAKE_DTC_ENTRIES, makeEntry, type MakeDtcEntry } from '../data/dtcMakeCodes.ts';
 
 /** P, B, C or U; then 0–3; then three hex digits (P0A80, P242F, U0100). */
 const CODE_SHAPE = /^[PBCU][0-3][0-9A-F]{3}$/;
@@ -115,31 +116,51 @@ export function describeCode(code: string): CodeStructure | null {
   };
 }
 
-export function lookupCode(code: string): DtcEntry | null {
+/**
+ * The library entry for a code. With the vehicle's make, a make-specific
+ * meaning (a Ford C1145, a Toyota C1201) wins over the generic one.
+ */
+export function lookupCode(code: string, make?: string | null): DtcEntry | MakeDtcEntry | null {
   const c = normalizeCode(code);
-  return c ? (DTC_LIBRARY.get(c) ?? null) : null;
+  if (!c) return null;
+  return makeEntry(c, make) ?? DTC_LIBRARY.get(c) ?? null;
+}
+
+export function isMakeEntry(e: DtcEntry | MakeDtcEntry | null | undefined): e is MakeDtcEntry {
+  return !!e && 'makeLabel' in e;
+}
+
+/** Everything the library knows: generic codes plus every make's codes. */
+export function allEntries(make?: string | null): (DtcEntry | MakeDtcEntry)[] {
+  const m = String(make ?? '').toLowerCase().trim();
+  const makes = MAKE_DTC_ENTRIES.filter((e) => !m || e.makes.includes(m));
+  return [...DTC_ENTRIES, ...makes];
 }
 
 /**
  * Library search: a full code is an exact hit; a partial code ("P03") lists
  * that family; words match titles and meanings ("misfire", "evap leak").
  */
-export function searchCodes(query: string, limit = 50): DtcEntry[] {
+export function searchCodes(query: string, limit = 50, make?: string | null): (DtcEntry | MakeDtcEntry)[] {
   const q = query.trim();
   if (!q) return [];
-  const exact = lookupCode(q);
-  if (exact) return [exact];
+  const pool = allEntries(make);
+  const code = normalizeCode(q);
+  if (code) {
+    const hits = pool.filter((e) => e.code === code);
+    if (hits.length) return hits;
+  }
   const upper = q.toUpperCase().replace(/\s+/g, '');
   if (/^[PBCU][0-3]?[0-9A-F]{0,3}$/.test(upper)) {
-    return DTC_ENTRIES.filter((e) => e.code.startsWith(upper)).slice(0, limit);
+    return pool.filter((e) => e.code.startsWith(upper)).slice(0, limit);
   }
   const words = q
     .toLowerCase()
     .split(/\s+/)
     .filter((w) => w.length > 1);
   if (!words.length) return [];
-  const scored: { e: DtcEntry; score: number }[] = [];
-  for (const e of DTC_ENTRIES) {
+  const scored: { e: DtcEntry | MakeDtcEntry; score: number }[] = [];
+  for (const e of pool) {
     const title = e.title.toLowerCase();
     const body = `${e.meaning} ${e.causes.join(' ')} ${e.symptoms.join(' ')}`.toLowerCase();
     let score = 0;
@@ -170,6 +191,9 @@ export const CODE_RANGES: { prefix: string; label: string }[] = [
   { prefix: 'P08', label: 'P08xx · Transmission' },
   { prefix: 'P0A', label: 'P0Axx · Hybrid' },
   { prefix: 'P2', label: 'P2xxx · Throttle, fuel trim, O2, diesel aftertreatment' },
-  { prefix: 'C', label: 'Cxxxx · Chassis (ABS)' },
-  { prefix: 'U', label: 'Uxxxx · Network' },
+  { prefix: 'B', label: 'Bxxxx · Body: airbags, security, power, modules' },
+  { prefix: 'C0', label: 'C0xxx · Chassis: ABS, stability, steering' },
+  { prefix: 'C1', label: 'C1xxx · Chassis, make-specific: ABS, wheel sensors, stability' },
+  { prefix: 'U0', label: 'U0xxx · Network: lost communication, bus faults' },
+  { prefix: 'U2', label: 'U2xxx · Network, make-specific: configuration' },
 ];
