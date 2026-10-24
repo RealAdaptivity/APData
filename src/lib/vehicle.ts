@@ -211,12 +211,3 @@ export function scopeLabel(row: ScopeRow): string {
 export function ilikeLiteral(s: string): string {
   return s.trim().replace(/[\\%_]/g, '\\$&');
 }
-
-/** The common makes, for the year/make/model picker. */
-export const COMMON_MAKES = [
-  'Acura', 'Alfa Romeo', 'Audi', 'BMW', 'Buick', 'Cadillac', 'Chevrolet', 'Chrysler', 'Dodge', 'Fiat',
-  'Ford', 'Genesis', 'GMC', 'Honda', 'Hyundai', 'Infiniti', 'Jaguar', 'Jeep', 'Kia', 'Land Rover',
-  'Lexus', 'Lincoln', 'Mazda', 'Mercedes-Benz', 'MINI', 'Mitsubishi', 'Nissan', 'Porsche', 'Ram',
-  'Subaru', 'Tesla', 'Toyota', 'Volkswagen', 'Volvo', 'Freightliner', 'International', 'Isuzu',
-  'Kenworth', 'Mack', 'Peterbilt', 'Hino', 'Western Star',
-];
