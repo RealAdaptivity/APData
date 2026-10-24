@@ -17,6 +17,7 @@
  */
 
 import type { SystemId } from './systems.ts';
+import { GENERIC_NETWORK_BODY_CHASSIS } from './dtcChassisBody.ts';
 
 export type Severity = 'low' | 'medium' | 'high' | 'critical';
 
@@ -2159,6 +2160,8 @@ const ENTRIES: DtcEntry[] = [
       articles: ['wheel-bearing-diagnosis'],
     })
   ),
+
+  ...GENERIC_NETWORK_BODY_CHASSIS,
 ];
 
 /** Every library entry, keyed by code. Duplicate codes are a bug (see tests). */

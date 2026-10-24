@@ -2,6 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { BookOpen, ChevronRight, ScanLine, Search, ThumbsUp, Wrench } from 'lucide-react';
 import { searchCodes, parseCodes, normalizeCode } from '../lib/dtc';
 import { searchArticles } from '../data/articles';
+import { searchFaults } from '../data/faults';
 import { useAsync } from '../lib/useAsync';
 import { useVehicle } from '../lib/vehicleStore';
 import { rankFixes } from '../lib/fixRank';
@@ -17,7 +18,8 @@ export function SearchPage({ route }: { route: Route }) {
   const { vehicle } = useVehicle();
   const q = (route.query.get('q') ?? '').trim();
   const [text, setText] = useState(q);
-  const codes = useMemo(() => (q ? searchCodes(q, 12) : []), [q]);
+  const codes = useMemo(() => (q ? searchCodes(q, 12, vehicle?.make) : []), [q, vehicle?.make]);
+  const faults = useMemo(() => (q && !normalizeCode(q) ? searchFaults(q).slice(0, 6) : []), [q]);
   const pasted = useMemo(() => parseCodes(q), [q]);
   const articles = useMemo(() => (q ? searchArticles(q).slice(0, 8) : []), [q]);
   const fixes = useAsync(() => (q && !normalizeCode(q) ? searchFixes(q) : Promise.resolve([])), [q]);
@@ -32,7 +34,7 @@ export function SearchPage({ route }: { route: Route }) {
     navigate(`/search?q=${encodeURIComponent(text.trim())}`, { replace: true });
   };
 
-  const nothing = q && !codes.length && !articles.length && !shopProcs.length && !rankedFixes.length && !fixes.loading && !procs.loading;
+  const nothing = q && !codes.length && !faults.length && !articles.length && !shopProcs.length && !rankedFixes.length && !fixes.loading && !procs.loading;
 
   return (
     <Page title="Search">
@@ -43,7 +45,7 @@ export function SearchPage({ route }: { route: Route }) {
           <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="Code, symptom, part or procedure" className="pl-9" autoFocus />
         </label>
       </form>
-      {!q && <p className="text-[13px] text-slate-400">Search trouble codes, how-to articles, shop procedures and confirmed fixes at once.</p>}
+      {!q && <p className="text-[13px] text-slate-400">Search trouble codes, faults, how-to articles, shop procedures and confirmed fixes at once.</p>}
       {pasted.length > 1 && (
         <LinkButton to={`/fixes?codes=${pasted.join(',')}`} variant="primary" icon={<ThumbsUp className="h-4 w-4" />}>
           Find fixes with {pasted.join(', ')}
@@ -53,11 +55,26 @@ export function SearchPage({ route }: { route: Route }) {
         <Section title="Trouble codes">
           <ul className="-mx-2">
             {codes.map((c) => (
-              <li key={c.code}>
+              <li key={`${c.code}${'makeLabel' in c ? c.makeLabel : ''}`}>
                 <Link to={`/codes/${c.code}`} className="flex items-center gap-3 rounded-xl px-2 py-2.5 hover:bg-white/5">
                   <ScanLine className="h-4 w-4 shrink-0 text-brand" />
                   <span className="w-14 shrink-0 font-mono text-sm font-bold text-brand-soft">{c.code}</span>
                   <span className="min-w-0 flex-1 text-[13px] text-slate-200">{c.title}</span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-slate-600" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
+      {faults.length > 0 && (
+        <Section title="Faults">
+          <ul className="-mx-2">
+            {faults.map((f) => (
+              <li key={f.id}>
+                <Link to={`/faults/${f.id}`} className="flex items-center gap-3 rounded-xl px-2 py-2.5 hover:bg-white/5">
+                  <Wrench className="h-4 w-4 shrink-0 text-brand" />
+                  <span className="min-w-0 flex-1 text-[14px] text-slate-100">{f.title}</span>
                   <ChevronRight className="h-4 w-4 shrink-0 text-slate-600" />
                 </Link>
               </li>

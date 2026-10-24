@@ -17,6 +17,7 @@ import {
   parseEngines,
   parseEpaOption,
   parseMakes,
+  parseNhtsaModels,
   parseModels,
   parseTrims,
   refineEngines,
@@ -304,7 +305,7 @@ test('the make list is road-legal brands for the year only', async () => {
   assert.equal(m2003.filter((m) => m.id === 'isuzu').length, 1);
   assert.ok(m2003.some((m) => m.name === 'Pontiac'));
 
-  // Outside 2000–2026 the catalog answers as is.
+  // Outside 2000–2027 the catalog answers as is.
   const m1995 = await loadMakes('1995', fakeGet({ [`${VPIC}/makes?year=1995`]: vpic2015 }));
   assert.equal(m1995.length, vpic2015.length);
 });
@@ -335,6 +336,40 @@ test('EPA is asked with its own spelling of the make', async () => {
     models.map((m) => m.name),
     ['650S Coupe']
   );
+});
+
+test('motorcycles and motorhomes come from NHTSA, keeping only the brand asked for', async () => {
+  const makes = await loadMakes('2027', fakeGet({ [`${VPIC}/makes?year=2027`]: [{ id: 'winnebago', name: 'Winnebago' }, { id: 'honda', name: 'Honda', popular: true }] }));
+  const by = Object.fromEntries(makes.map((m) => [m.name, m]));
+  assert.equal(by['Harley-Davidson'].kind, 'motorcycle');
+  assert.equal(by.Winnebago.kind, 'rv');
+  assert.equal(by.Winnebago.source, 'nhtsa', 'a motorhome builder asks NHTSA even when the keyless catalog has it');
+  assert.equal(by.Honda.source, 'vpic', 'Honda cars and Honda motorcycles are separate entries');
+  assert.equal(by['Honda Motorcycles'].source, 'nhtsa');
+  assert.ok(!by.Victory, 'Victory stopped after 2017');
+  assert.ok(by.Ford, '2027 has the brands still selling');
+
+  const thor = by['Thor Motor Coach'];
+  const answer = {
+    models: [
+      { make: 'THOR', model: 'Four Winds' },
+      { make: 'THORP EQUIPMENT, INC', model: 'Thorp Equipment, Inc' },
+      { make: 'THOR INDIANA, INC.', model: 'Aria' },
+      { make: 'THOR', model: 'Four Winds' },
+    ],
+  };
+  const get = fakeGet({ 'nhtsa:models?make=thor&year=2027': answer });
+  assert.deepEqual(
+    (await loadModels('2027', thor, get)).map((m) => m.name),
+    ['Aria', 'Four Winds']
+  );
+  const hd = by['Harley-Davidson'];
+  const hdGet = fakeGet({ 'nhtsa:models?make=harley-davidson&year=2027&type=motorcycle': { models: [{ make: 'HARLEY-DAVIDSON', model: 'Road Glide' }] } });
+  const hdModels = await loadModels('2027', hd, hdGet);
+  assert.deepEqual(hdModels.map((m) => m.name), ['Road Glide']);
+  assert.deepEqual(await loadTrims('2027', hd, hdModels[0], hdGet), []);
+  assert.deepEqual(await loadEngines('2027', hd, hdModels[0], null, [], hdGet), { engines: [], checked: false }, 'engines are typed, and EPA is not asked');
+  assert.deepEqual(parseNhtsaModels({ error: 'x' }, ['THOR']), []);
 });
 
 test('picker steps: list, loading, typed and remembered values', () => {

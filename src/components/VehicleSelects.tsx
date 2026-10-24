@@ -129,6 +129,8 @@ function CatalogStep<T extends Named>({
 const MAKE_GROUPS: [MakeChoice['kind'], string][] = [
   ['light', 'Cars, SUVs, pickups & vans'],
   ['truck', 'Commercial trucks'],
+  ['motorcycle', 'Motorcycles'],
+  ['rv', 'Motorhomes & RVs'],
   ['other', 'Other makes'],
 ];
 
@@ -188,7 +190,7 @@ export function VehicleSelects({ initial, onPick }: { initial: Vehicle | null; o
   const [error, setError] = useState<string | null>(null);
 
   const yearOk = /^\d{4}$/.test(year);
-  // 2000–2026; a vehicle picked earlier from another year stays selectable.
+  // 2000–2027; a vehicle picked earlier from another year stays selectable.
   const years = initial?.year && !ROAD_YEARS.includes(initial.year) ? [...ROAD_YEARS, initial.year] : ROAD_YEARS;
 
   const makes = useKeyed(yearOk ? `makes|${year}` : null, () => loadMakes(year));
@@ -303,6 +305,11 @@ export function VehicleSelects({ initial, onPick }: { initial: Vehicle | null; o
           onRetry={makes.reload}
         />
       </div>
+      {makeChoice?.kind === 'rv' && (
+        <p className="text-xs text-slate-400">
+          This is the coach builder. For engine, transmission or brake work, pick the chassis maker instead (Ford, Chevrolet, Freightliner, Spartan, Workhorse) — the chassis VIN is on the frame or the driver’s door pillar.
+        </p>
+      )}
       <CatalogStep
         label="Model"
         step={modelStep}

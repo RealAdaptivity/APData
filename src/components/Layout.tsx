@@ -7,8 +7,8 @@ import { vehicleSubtitle, vehicleTitle } from '../lib/vehicle';
 import { cx } from './ui';
 
 const NAV = [
-  { to: '/', label: 'Vehicle', icon: Car, match: (p: string) => p === '/' || p.startsWith('/vehicle') || ['/recalls', '/problems', '/specs', '/files', '/notes'].some((x) => p.startsWith(x)) },
-  { to: '/codes', label: 'Codes', icon: ScanLine, match: (p: string) => p.startsWith('/codes') },
+  { to: '/', label: 'Vehicle', icon: Car, match: (p: string) => p === '/' || p.startsWith('/vehicle') || ['/recalls', '/problems', '/specs', '/files', '/notes', '/locations'].some((x) => p.startsWith(x)) },
+  { to: '/codes', label: 'Codes', icon: ScanLine, match: (p: string) => p.startsWith('/codes') || p.startsWith('/faults') },
   { to: '/fixes', label: 'Fixes', icon: ThumbsUp, match: (p: string) => p.startsWith('/fixes') },
   { to: '/repair', label: 'Repair', icon: BookOpen, match: (p: string) => p.startsWith('/repair') },
   { to: '/labor', label: 'Labor', icon: Clock, match: (p: string) => p.startsWith('/labor') },
