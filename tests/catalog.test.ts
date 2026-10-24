@@ -72,7 +72,7 @@ const epaOptions: Record<string, unknown> = {
   'Transit T150 Wagon': { menuItem: { text: 'Auto (S6), 6 cyl, 3.5 L, Turbo', value: '35037' } },
 };
 
-const ford: MakeChoice = { id: 'ford', name: 'Ford', popular: true, source: 'vpic' };
+const ford: MakeChoice = { id: 'ford', name: 'Ford', kind: 'light', source: 'vpic' };
 const explorer: ModelChoice = { id: 'explorer', name: 'Explorer', source: 'vpic' };
 const siblings = ford2015Models.map((m) => m.name);
 
@@ -116,8 +116,8 @@ test('catalog lists parse, dedupe and sort', () => {
     makes.map((m) => m.name),
     ['Blue Bird', 'Ford', 'Toyota']
   );
-  assert.equal(makes[1].popular, true);
-  assert.equal(makes[0].popular, false);
+  assert.equal(makes[1].kind, 'light');
+  assert.equal(makes[0].kind, 'other');
 
   assert.deepEqual(
     parseModels(ford2015Models).map((m) => m.id),
@@ -273,25 +273,68 @@ test('loadEngines: EPA down → the NHTSA list; NHTSA down → EPA’s list; bot
   await assert.rejects(loadEngines('2015', ford, explorer, null, siblings, fakeGet({}, /./)), /engine list/);
 });
 
+test('the make list is road-legal brands for the year only', async () => {
+  const vpic2015 = [
+    { id: 'ford', name: 'Ford', popular: true },
+    { id: 'toyota', name: 'Toyota', popular: true },
+    { id: 'blue-bird', name: 'Blue Bird', popular: false },
+    { id: 'c-r-cheetah-race-cars', name: 'C-R CHEETAH RACE CARS', popular: false },
+    { id: 'atlanta-fabricating-equipment-co', name: 'Atlanta Fabricating & Equipment Co', popular: false },
+    { id: 'mclaren', name: 'McLaren', popular: false },
+    { id: 'freightliner', name: 'Freightliner', popular: false },
+    { id: 'volvo', name: 'Volvo', popular: true },
+    { id: 'volvo-truck', name: 'Volvo Truck', popular: false },
+  ];
+  const makes = await loadMakes('2015', fakeGet({ [`${VPIC}/makes?year=2015`]: vpic2015 }));
+  const names = makes.map((m) => m.name);
+  for (const junk of ['Blue Bird', 'C-R CHEETAH RACE CARS', 'Atlanta Fabricating & Equipment Co']) assert.ok(!names.includes(junk), `${junk} is not a road vehicle brand`);
+  for (const gone of ['Pontiac', 'Saturn', 'Hummer', 'Rivian']) assert.ok(!names.includes(gone), `${gone} sold nothing for 2015`);
+
+  const by = Object.fromEntries(makes.map((m) => [m.name, m]));
+  assert.deepEqual(by.Ford, { id: 'ford', name: 'Ford', kind: 'light', source: 'vpic' });
+  assert.deepEqual(by.McLaren, { id: 'mclaren', name: 'McLaren', kind: 'light', source: 'vpic', epa: 'McLaren Automotive' });
+  assert.deepEqual(by.Scion, { id: 'Scion', name: 'Scion', kind: 'light', source: 'epa' }, 'a brand NHTSA files under another make comes from EPA');
+  assert.equal(by['Volvo Trucks'].id, 'volvo-truck', 'Volvo cars and Volvo trucks stay apart');
+  assert.equal(by.Volvo.id, 'volvo');
+  assert.equal(by.Freightliner.kind, 'truck');
+  assert.equal(by.Kenworth.source, 'vpic', 'a truck brand NHTSA lacks that year still shows');
+
+  // 2003: the Isuzu name holds both the Rodeo and the NPR, once.
+  const m2003 = await loadMakes('2003', fakeGet({ [`${VPIC}/makes?year=2003`]: [{ id: 'isuzu', name: 'Isuzu' }] }));
+  assert.equal(m2003.filter((m) => m.id === 'isuzu').length, 1);
+  assert.ok(m2003.some((m) => m.name === 'Pontiac'));
+
+  // Outside 2000–2026 the catalog answers as is.
+  const m1995 = await loadMakes('1995', fakeGet({ [`${VPIC}/makes?year=1995`]: vpic2015 }));
+  assert.equal(m1995.length, vpic2015.length);
+});
+
 test('makes, models and trims fall back to EPA when NHTSA’s catalog is down', async () => {
   const answers = {
-    [`${EPA}/make?year=2015`]: { menuItem: [{ text: 'Ford', value: 'Ford' }, { text: 'Bugatti', value: 'Bugatti' }] },
     [`${EPA}/model?year=2015&make=Ford`]: epaFord2015,
   };
   const get = fakeGet(answers, /wenmarpro/);
   const makes = await loadMakes('2015', get);
-  assert.deepEqual(
-    makes.map((m) => `${m.name}:${m.popular}:${m.source}`),
-    ['Bugatti:false:epa', 'Ford:true:epa']
-  );
-  const models = await loadModels('2015', makes[1], get);
+  const fordEpa = makes.find((m) => m.name === 'Ford')!;
+  assert.deepEqual(fordEpa, { id: 'Ford', name: 'Ford', kind: 'light', source: 'epa' }, 'the brand table answers without the network');
+  const models = await loadModels('2015', fordEpa, get);
   const exp = models.find((m) => m.name === 'Explorer')!;
   assert.equal(exp.source, 'epa');
-  assert.deepEqual(await loadTrims('2015', makes[1], exp, get), [], 'EPA has no trims');
+  assert.deepEqual(await loadTrims('2015', fordEpa, exp, get), [], 'EPA has no trims');
 
-  const engines = await loadEngines('2015', makes[1], exp, null, [], fakeGet(fordExplorerNetwork()));
+  const engines = await loadEngines('2015', fordEpa, exp, null, [], fakeGet(fordExplorerNetwork()));
   assert.equal(engines.checked, true);
   assert.equal(engines.engines.length, 3);
+});
+
+test('EPA is asked with its own spelling of the make', async () => {
+  const mclaren: MakeChoice = { id: 'mclaren', name: 'McLaren', kind: 'light', source: 'vpic', epa: 'McLaren Automotive' };
+  const get = fakeGet({ [`${EPA}/model?year=2015&make=McLaren%20Automotive`]: { menuItem: { text: '650S Coupe', value: '650S Coupe' } } }, /wenmarpro/);
+  const models = await loadModels('2015', mclaren, get);
+  assert.deepEqual(
+    models.map((m) => m.name),
+    ['650S Coupe']
+  );
 });
 
 test('picker steps: list, loading, typed and remembered values', () => {

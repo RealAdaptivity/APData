@@ -24,10 +24,19 @@
  * directly (tests/catalog.test.ts).
  */
 import { engineFacts, norm } from './vehicle.ts';
+import { ROAD_MAKES } from '../data/roadMakes.ts';
 
 export type CatalogSource = 'vpic' | 'epa';
 
-export type MakeChoice = { id: string; name: string; popular: boolean; source: CatalogSource };
+export type MakeChoice = {
+  id: string;
+  name: string;
+  /** light: cars, SUVs, pickups, vans. truck: commercial trucks. other: a year outside the road-make table. */
+  kind: 'light' | 'truck' | 'other';
+  source: CatalogSource;
+  /** EPA's spelling of the make, when it differs from `name`. */
+  epa?: string;
+};
 
 export type ModelChoice = {
   id: string;
@@ -86,7 +95,7 @@ function uniqueBy<T>(list: T[], key: (t: T) => string): T[] {
 }
 
 export function parseMakes(json: unknown): MakeChoice[] {
-  const list = rows(json).map((r) => ({ id: text(r.id), name: text(r.name), popular: r.popular === true, source: 'vpic' as const }));
+  const list = rows(json).map((r) => ({ id: text(r.id), name: text(r.name), kind: r.popular === true ? ('light' as const) : ('other' as const), source: 'vpic' as const }));
   return uniqueBy(
     list.filter((m) => m.name),
     (m) => m.id
@@ -302,6 +311,38 @@ export function engineOptionText(e: EngineChoice): string {
   return [e.name, e.vinCode ? `VIN 8th: ${vinCodeText(e.vinCode)}` : '', e.driveNote ?? ''].filter(Boolean).join(' · ');
 }
 
+/**
+ * The road-legal makes for a model year (src/data/roadMakes.ts), each tied to
+ * NHTSA's entry when NHTSA lists it that year (so models, trims and engines
+ * come from there), else to EPA's lists. Null for a year outside the table.
+ */
+export function roadMakesFor(year: string, vpicMakes: MakeChoice[]): MakeChoice[] | null {
+  const y = Number(year);
+  const brands = ROAD_MAKES.filter((m) => y >= m.from && y <= m.to);
+  if (!brands.length) return null;
+  const byName = new Map(vpicMakes.map((m) => [norm(m.name), m]));
+  const used = new Set<string>();
+  return brands
+    .map((b): MakeChoice => {
+      const names = [b.name, b.epa, ...(b.vpic ?? [])].filter((n): n is string => !!n).map(norm);
+      const hit = names.map((n) => byName.get(n)).find((m) => m && !used.has(m.id));
+      if (hit) used.add(hit.id);
+      const epa = b.kind === 'light' && b.epa ? { epa: b.epa } : {};
+      if (hit) return { id: hit.id, name: b.name, kind: b.kind, source: 'vpic', ...epa };
+      // NHTSA's catalog lacks it (Scion, Roush…) or is unreachable: EPA's lists for a car brand,
+      // and for a truck brand a typed model.
+      return b.kind === 'light'
+        ? { id: b.epa ?? b.name, name: b.name, kind: 'light', source: 'epa', ...epa }
+        : { id: norm(b.name), name: b.name, kind: 'truck', source: 'vpic' };
+    })
+    .sort(byNameOrder);
+}
+
+const byNameOrder = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, 'en', { numeric: true, sensitivity: 'base' });
+
+/** The name EPA files the make under. */
+const epaMake = (make: MakeChoice) => make.epa ?? make.name;
+
 /* ---------------------------------------------------------------- loading */
 
 export type GetJson = (url: string) => Promise<unknown>;
@@ -392,17 +433,19 @@ export const getJson: GetJson = (url) => {
 
 const q = encodeURIComponent;
 
-/** Makes that registered vehicles for the year. */
+/** The road-legal makes for the year, tied to NHTSA's catalog where it lists them. */
 export async function loadMakes(year: string, get: GetJson = getJson): Promise<MakeChoice[]> {
+  let vpic: MakeChoice[] = [];
   try {
-    const list = parseMakes(await get(`${VPIC}/makes?year=${q(year)}`));
-    if (list.length) return list;
+    vpic = parseMakes(await get(`${VPIC}/makes?year=${q(year)}`));
   } catch {
-    /* EPA below */
+    /* the road-make table still answers, from EPA */
   }
-  const popular = new Set(POPULAR_MAKES.map(norm));
+  const road = roadMakesFor(year, vpic);
+  if (road) return road;
+  if (vpic.length) return vpic;
   return epaItems(await get(`${EPA}/make?year=${q(year)}`))
-    .map((i): MakeChoice => ({ id: i.value, name: i.text, popular: popular.has(norm(i.text)), source: 'epa' }))
+    .map((i): MakeChoice => ({ id: i.value, name: i.text, kind: 'light', source: 'epa' }))
     .sort(byName);
 }
 
@@ -415,7 +458,7 @@ export async function loadModels(year: string, make: MakeChoice, get: GetJson = 
       /* EPA below */
     }
   }
-  return modelsFromEpa(epaItems(await get(`${EPA}/model?year=${q(year)}&make=${q(make.name)}`)).map((i) => i.value));
+  return modelsFromEpa(epaItems(await get(`${EPA}/model?year=${q(year)}&make=${q(epaMake(make))}`)).map((i) => i.value));
 }
 
 /** Trims come from vPIC only; an EPA-listed model has none. */
@@ -430,12 +473,12 @@ async function epaOptions(year: string, make: MakeChoice, model: ModelChoice, si
     epaModelsFor(
       model.name,
       siblings,
-      epaItems(await get(`${EPA}/model?year=${q(year)}&make=${q(make.name)}`)).map((i) => i.value)
+      epaItems(await get(`${EPA}/model?year=${q(year)}&make=${q(epaMake(make))}`)).map((i) => i.value)
     );
   return Promise.all(
     names.slice(0, 10).map(async (name) => ({
       model: name,
-      options: epaItems(await get(`${EPA}/options?year=${q(year)}&make=${q(make.name)}&model=${q(name)}`)).map((i) => i.text),
+      options: epaItems(await get(`${EPA}/options?year=${q(year)}&make=${q(epaMake(make))}&model=${q(name)}`)).map((i) => i.text),
     }))
   );
 }
@@ -482,10 +525,3 @@ export async function loadEngines(
   if (vpic === null) throw new Error('Could not load the engine list.');
   return { engines: [], checked: false };
 }
-
-/** Makes to group first when the list comes from EPA (vPIC marks its own). */
-const POPULAR_MAKES = [
-  'Acura', 'Audi', 'BMW', 'Buick', 'Cadillac', 'Chevrolet', 'Chrysler', 'Dodge', 'Ford', 'Genesis', 'GMC', 'Honda',
-  'Hyundai', 'Infiniti', 'Jeep', 'Kia', 'Land Rover', 'Lexus', 'Lincoln', 'Mazda', 'Mercedes-Benz', 'MINI',
-  'Mitsubishi', 'Nissan', 'Porsche', 'Ram', 'Subaru', 'Tesla', 'Toyota', 'Volkswagen', 'Volvo',
-];

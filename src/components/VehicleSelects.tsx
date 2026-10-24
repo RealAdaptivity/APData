@@ -15,6 +15,7 @@ import {
 } from '../lib/vehicleCatalog';
 import { NO_PICK, resolveStep, stepName, stepValue, upstreamOf, type Named, type Step, type StepPick } from '../lib/pickerSteps';
 import { useKeyed } from '../lib/useKeyed';
+import { ROAD_YEARS } from '../data/roadMakes';
 import { Button, ErrorNote, Field, Input, Select } from './ui';
 
 /**
@@ -24,8 +25,6 @@ import { Button, ErrorNote, Field, Input, Select } from './ui';
  * instead, for a vehicle the catalog lacks or when the catalog is unreachable.
  */
 
-const THIS_YEAR = new Date().getFullYear();
-const YEARS = Array.from({ length: THIS_YEAR + 2 - 1981 }, (_, i) => String(THIS_YEAR + 1 - i));
 const OTHER = '__other__';
 
 const pickOf = (item: Named | null): StepPick => (item ? { id: item.id, name: item.name, manual: false } : NO_PICK);
@@ -127,22 +126,26 @@ function CatalogStep<T extends Named>({
   );
 }
 
+const MAKE_GROUPS: [MakeChoice['kind'], string][] = [
+  ['light', 'Cars, SUVs, pickups & vans'],
+  ['truck', 'Commercial trucks'],
+  ['other', 'Other makes'],
+];
+
 function makeOptions(items: MakeChoice[]) {
-  const common = items.filter((m) => m.popular);
-  const rest = items.filter((m) => !m.popular);
   const opts = (list: MakeChoice[]) =>
     list.map((m) => (
       <option key={m.id} value={m.id}>
         {m.name}
       </option>
     ));
-  if (!common.length || !rest.length) return opts(items);
-  return (
-    <>
-      <optgroup label="Common makes">{opts(common)}</optgroup>
-      <optgroup label="All makes (trucks, RVs, buses, specialty)">{opts(rest)}</optgroup>
-    </>
-  );
+  const groups = MAKE_GROUPS.map(([kind, label]) => [label, items.filter((m) => m.kind === kind)] as const).filter(([, list]) => list.length);
+  if (groups.length < 2) return opts(items);
+  return groups.map(([label, list]) => (
+    <optgroup key={label} label={label}>
+      {opts(list)}
+    </optgroup>
+  ));
 }
 
 function plainOptions(items: Named[]) {
@@ -185,6 +188,8 @@ export function VehicleSelects({ initial, onPick }: { initial: Vehicle | null; o
   const [error, setError] = useState<string | null>(null);
 
   const yearOk = /^\d{4}$/.test(year);
+  // 2000–2026; a vehicle picked earlier from another year stays selectable.
+  const years = initial?.year && !ROAD_YEARS.includes(initial.year) ? [...ROAD_YEARS, initial.year] : ROAD_YEARS;
 
   const makes = useKeyed(yearOk ? `makes|${year}` : null, () => loadMakes(year));
   const makeStep = resolveStep(make, makes, yearOk ? 'list' : 'off');
@@ -266,7 +271,7 @@ export function VehicleSelects({ initial, onPick }: { initial: Vehicle | null; o
             }}
           >
             <option value="">Year</option>
-            {YEARS.map((y) => (
+            {years.map((y) => (
               <option key={y} value={y}>
                 {y}
               </option>
