@@ -25,6 +25,8 @@ import {
 import { SYSTEMS, systemInfo } from '../data/systems';
 import { lookupCode } from '../lib/dtc';
 import { FixCard } from '../components/FixCard';
+import { useJob } from '../lib/jobStore';
+import { jobMatchesVehicle } from '../lib/jobLink';
 import {
   Badge,
   Button,
@@ -495,7 +497,9 @@ function FixForm({ initial, onSave, saveLabel, lockVehicle }: { initial: FixInpu
 
 export function FixNewPage({ route }: { route: Route }) {
   const { vehicle } = useVehicle();
-  const codes = parseCodes(route.query.get('codes') ?? '').filter((c) => normalizeCode(c));
+  const job = useJob();
+  const forJob = job && vehicle && jobMatchesVehicle(job, vehicle) ? job : null;
+  const codes = [...new Set([...parseCodes(route.query.get('codes') ?? ''), ...(forJob?.codes ?? [])])].filter((c) => normalizeCode(c));
   if (!vehicle) {
     return (
       <Page title="Add a confirmed fix" back="/fixes">
@@ -508,13 +512,14 @@ export function FixNewPage({ route }: { route: Route }) {
   return (
     <Page title="Add a confirmed fix" subtitle="Only add fixes that you verified fixed the problem." back="/fixes">
       <Notice>Write it for the next tech: what you saw, what you tested, what was really wrong, and what fixed it.</Notice>
+      {forJob && <Notice tone="blue">Saved with job {forJob.ref}, so it shows on that job in the Adaptivity app.</Notice>}
       <FixForm
         key={vehicle.year + vehicle.make + vehicle.model}
-        initial={blankInput(vehicle, codes)}
+        initial={{ ...blankInput(vehicle, codes), symptom: forJob?.issue ?? '' }}
         lockVehicle
         saveLabel="Save fix"
         onSave={async (input) => {
-          const id = await createFix({ ...input, vehicle });
+          const id = await createFix({ ...input, vehicle, jobRef: forJob?.ref ?? null });
           navigate(`/fixes/${id}`, { replace: true });
         }}
       />

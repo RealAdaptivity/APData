@@ -119,6 +119,8 @@ export type FixInput = {
   fix: string;
   parts: string;
   laborHours: string;
+  /** The Adaptivity job (booking reference) it was done on, if any. */
+  jobRef?: string | null;
 };
 
 export function validateFix(f: FixInput): string | null {
@@ -148,6 +150,7 @@ function columns(f: FixInput) {
     fix: f.fix.trim(),
     parts: textOrNull(f.parts),
     labor_hours: numberOrNull(f.laborHours),
+    ...(f.jobRef !== undefined ? { job_ref: f.jobRef && /^[A-Za-z0-9-]{3,40}$/.test(f.jobRef) ? f.jobRef : null } : {}),
   };
 }
 

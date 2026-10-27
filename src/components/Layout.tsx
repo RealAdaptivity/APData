@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { BookOpen, Car, ChevronRight, Clock, Info, LogOut, Menu, ScanLine, Search, ThumbsUp, X } from 'lucide-react';
+import { BookOpen, Car, Download, ChevronRight, Clock, Info, LogOut, Menu, ScanLine, Search, ThumbsUp, X } from 'lucide-react';
 import { useAuth, useStaff } from '../lib/auth';
 import { Link, navigate, type Route } from '../lib/router';
 import { useVehicle } from '../lib/vehicleStore';
 import { vehicleSubtitle, vehicleTitle } from '../lib/vehicle';
 import { cx } from './ui';
+import { JobBar } from './JobBar';
+import { useInstall } from '../lib/install';
 
 const NAV = [
-  { to: '/', label: 'Vehicle', icon: Car, match: (p: string) => p === '/' || p.startsWith('/vehicle') || ['/recalls', '/problems', '/specs', '/files', '/notes', '/locations'].some((x) => p.startsWith(x)) },
+  { to: '/', label: 'Vehicle', icon: Car, match: (p: string) => p === '/' || p.startsWith('/vehicle') || ['/recalls', '/problems', '/specs', '/files', '/notes', '/locations', '/history', '/maintenance'].some((x) => p.startsWith(x)) },
   { to: '/codes', label: 'Codes', icon: ScanLine, match: (p: string) => p.startsWith('/codes') || p.startsWith('/faults') },
   { to: '/fixes', label: 'Fixes', icon: ThumbsUp, match: (p: string) => p.startsWith('/fixes') },
   { to: '/repair', label: 'Repair', icon: BookOpen, match: (p: string) => p.startsWith('/repair') },
@@ -68,6 +70,10 @@ function UserMenu() {
           <MenuLink to="/notes" onClick={() => setOpen(false)}>Shop notes</MenuLink>
           <MenuLink to="/files" onClick={() => setOpen(false)}>Shop files</MenuLink>
           <MenuLink to="/labor/estimate" onClick={() => setOpen(false)}>Labor estimate</MenuLink>
+          <MenuLink to="/history" onClick={() => setOpen(false)}>Service history by VIN</MenuLink>
+          <MenuLink to="/maintenance" onClick={() => setOpen(false)}>Maintenance schedule</MenuLink>
+          {staff.role === 'admin' && <MenuLink to="/owner" onClick={() => setOpen(false)}>Shop dashboard</MenuLink>}
+          <InstallItem onDone={() => setOpen(false)} />
           <MenuLink to="/about" onClick={() => setOpen(false)} icon={<Info className="h-4 w-4" />}>
             About AP Data
           </MenuLink>
@@ -82,6 +88,34 @@ function UserMenu() {
         </div>
       )}
     </div>
+  );
+}
+
+function InstallItem({ onDone }: { onDone: () => void }) {
+  const { mode, install } = useInstall();
+  const [tip, setTip] = useState(false);
+  if (!mode) return null;
+  if (mode === 'ios') {
+    return (
+      <div className="px-3 py-2.5 text-sm text-slate-300">
+        <button type="button" onClick={() => setTip((t) => !t)} className="flex w-full items-center gap-2 text-left hover:text-white">
+          <Download className="h-4 w-4" /> Install on this phone
+        </button>
+        {tip && <p className="mt-1.5 text-xs leading-relaxed text-slate-400">In Safari, tap Share, then “Add to Home Screen”. AP Data then opens like an app, and the code library works without signal.</p>}
+      </div>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        onDone();
+        void install();
+      }}
+      className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm text-slate-300 hover:bg-white/5"
+    >
+      <Download className="h-4 w-4" /> Install on this phone
+    </button>
   );
 }
 
@@ -173,6 +207,7 @@ export function Layout({ route, children }: { route: Route; children: ReactNode 
         </div>
         <div className="mx-auto max-w-5xl">
           <VehicleBar />
+          <JobBar />
         </div>
       </header>
 
