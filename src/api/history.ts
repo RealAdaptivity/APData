@@ -1,6 +1,12 @@
 import { supabase } from '../lib/supabase';
+import { nameOf } from './common';
 import { normalizeVin } from '../lib/vin';
 import { buildTimeline, type HistoryEntry, type HistoryRows } from '../lib/history';
+import { kindInfo, odometerReadings, type HistoryEvent, type OdometerReading } from '../lib/vehicleReport';
+
+export type ReportEvent = HistoryEvent & { created_by: string | null; author: string | null };
+
+export type VinHistory = { entries: HistoryEntry[]; partial: boolean; events: ReportEvent[]; odometer: OdometerReading[] };
 
 /**
  * Everything recorded against one VIN. Jobs come from the Adaptivity bookings
@@ -8,7 +14,7 @@ import { buildTimeline, type HistoryEntry, type HistoryRows } from '../lib/histo
  * (their row-level security), so a tech's history simply has none of those.
  * A table that refuses or is missing is left out rather than failing the page.
  */
-export async function historyForVin(rawVin: string): Promise<{ entries: HistoryEntry[]; partial: boolean }> {
+export async function historyForVin(rawVin: string): Promise<VinHistory> {
   const vin = normalizeVin(rawVin);
   if (vin.length !== 17) throw new Error('Enter all 17 characters of the VIN.');
   let partial = false;
@@ -21,7 +27,7 @@ export async function historyForVin(rawVin: string): Promise<{ entries: HistoryE
     return data ?? [];
   };
 
-  const [jobs, receipts, quotes, fixes, confirmations, notes] = await Promise.all([
+  const [jobs, receipts, quotes, fixes, confirmations, notes, rawEvents] = await Promise.all([
     settle<HistoryRows['jobs'][number]>(
       supabase
         .from('bookings')
@@ -41,7 +47,16 @@ export async function historyForVin(rawVin: string): Promise<{ entries: HistoryE
       supabase.from('repair_fix_confirmations').select('fix_id, created_at, note, fix:repair_fixes ( root_cause )').ilike('vin', vin).limit(100)
     ),
     settle<HistoryRows['notes'][number]>(supabase.from('vehicle_notes').select('id, created_at, note, job_ref').ilike('vin', vin).limit(100)),
+    settle<HistoryEvent & { created_by: string | null; author: unknown }>(
+      supabase
+        .from('vehicle_history_events')
+        .select('id, kind, event_date, mileage, note, source, created_at, created_by, author:profiles!vehicle_history_events_created_by_fkey ( full_name )')
+        .eq('vin', vin)
+        .order('created_at', { ascending: false })
+        .limit(300)
+    ),
   ]);
+  const events: ReportEvent[] = rawEvents.map((e) => ({ ...e, author: nameOf(e.author) }));
 
   const rootOf = (f: unknown) => {
     const one = Array.isArray(f) ? f[0] : f;
@@ -54,6 +69,11 @@ export async function historyForVin(rawVin: string): Promise<{ entries: HistoryE
     fixes,
     confirmations: confirmations.map((c) => ({ fix_id: c.fix_id, created_at: c.created_at, note: c.note, root_cause: rootOf(c.fix) })),
     notes,
+    events: events.map((e) => ({ ...e, label: kindInfo(e.kind).label })),
   });
-  return { entries, partial };
+  const odometer = odometerReadings([
+    ...fixes.map((f) => ({ date: f.created_at, miles: f.mileage, from: `Fix: ${f.root_cause}` })),
+    ...events.map((e) => ({ date: e.event_date || e.created_at, miles: e.mileage, from: `${kindInfo(e.kind).label}${e.source ? ` (${e.source})` : ''}` })),
+  ]);
+  return { entries, partial, events, odometer };
 }

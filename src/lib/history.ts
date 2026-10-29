@@ -15,9 +15,11 @@ export type HistoryRows = {
   fixes: { id: string; created_at: string; mileage: number | null; dtc_codes: string[] | null; root_cause: string; fix: string; job_ref: string | null }[];
   confirmations: { fix_id: string; created_at: string; note: string | null; root_cause: string | null }[];
   notes: { id: string; created_at: string; note: string; job_ref: string | null }[];
+  /** Vehicle history facts the shop recorded (vehicle_history_events). */
+  events?: { id: string; created_at: string; kind: string; event_date: string | null; mileage: number | null; note: string; source: string | null; label: string }[];
 };
 
-export type HistoryKind = 'job' | 'receipt' | 'quote' | 'fix' | 'confirmation' | 'note';
+export type HistoryKind = 'job' | 'receipt' | 'quote' | 'fix' | 'confirmation' | 'note' | 'event';
 
 export type HistoryEntry = {
   kind: HistoryKind;
@@ -66,7 +68,7 @@ export function statusLabel(s: string | null | undefined): string {
   return STATUS[k] ?? (k ? k.charAt(0) + k.slice(1).toLowerCase().replace(/_/g, ' ') : '');
 }
 
-const KIND_ORDER: Record<HistoryKind, number> = { note: 0, confirmation: 1, fix: 2, receipt: 3, quote: 4, job: 5 };
+const KIND_ORDER: Record<HistoryKind, number> = { event: -1, note: 0, confirmation: 1, fix: 2, receipt: 3, quote: 4, job: 5 };
 
 export function buildTimeline(r: HistoryRows): HistoryEntry[] {
   const out: HistoryEntry[] = [];
@@ -116,6 +118,14 @@ export function buildTimeline(r: HistoryRows): HistoryEntry[] {
   }
   for (const n of r.notes) {
     out.push({ kind: 'note', date: n.created_at, title: 'Note', detail: [n.note.trim()], ...(n.job_ref ? { job: n.job_ref } : {}) });
+  }
+  for (const e of r.events ?? []) {
+    out.push({
+      kind: 'event',
+      date: e.event_date || e.created_at,
+      title: e.label,
+      detail: [e.note.trim(), [e.mileage ? `${e.mileage.toLocaleString('en-US')} mi` : '', e.source ? `Source: ${e.source}` : ''].filter(Boolean).join(' · ')].filter(Boolean),
+    });
   }
   // Newest first; on the same day, later steps of a visit first (paid after quoted after booked).
   const time = (d: string) => Date.parse(d.length === 10 ? `${d}T12:00:00Z` : d) || 0;
