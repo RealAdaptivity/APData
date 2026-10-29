@@ -124,3 +124,31 @@ test('shop dashboard numbers', () => {
   );
   assert.deepEqual(cap, { completed: 2, withFix: 1, pct: 50 });
 });
+
+import { TYPICAL_TIMES, engineKind, typicalFor } from '../src/data/laborTypical.ts';
+import { LABOR_JOBS } from '../src/data/laborJobs.ts';
+import { suggestedHours } from '../src/lib/labor.ts';
+
+test('every labor job has a typical time, and the quote falls back to it', () => {
+  for (const j of LABOR_JOBS) {
+    const t = TYPICAL_TIMES[j.code];
+    assert.ok(t, `${j.code} has a typical time`);
+    for (const r of [t.base, t.v6, t.v8, t.diesel].filter(Boolean)) assert.ok(r![0] > 0 && r![0] <= r![1] && r![1] <= 16, `${j.code} range`);
+  }
+  for (const code of Object.keys(TYPICAL_TIMES)) assert.ok(LABOR_JOB_BY_CODE.get(code), `typical time for unknown job ${code}`);
+  assert.equal(engineKind('2.0L I4'), 'other');
+  assert.equal(engineKind('3.5L Turbo V6'), 'v6');
+  assert.equal(engineKind('5.3L V8'), 'v8');
+  assert.equal(engineKind('6.7L V8 Diesel'), 'diesel');
+  assert.deepEqual(typicalFor('oil_change', '2.0L I4'), { low: 0.3, high: 0.5, hours: 0.4, note: undefined, engine: 'other' });
+  assert.equal(typicalFor('spark_plugs', '3.5L V6')!.high, 3.0);
+  assert.equal(typicalFor('spark_plugs', '3.5L V6')!.engine, 'v6');
+  assert.equal(typicalFor('oil_change', '3.5L V6')!.engine, 'other', 'no V6 range for an oil change');
+  const focus = { year: '2012', make: 'Ford', model: 'Focus', engine: '2.0L I4' };
+  const s = suggestedHours([], focus, 'oil_change');
+  assert.equal(s?.hours, 0.4);
+  assert.match(s!.basis, /typical time \(0\.3–0\.5 h\)/);
+  assert.equal(suggestedHours([], focus), null, 'no code, no fallback');
+  const book = [{ id: 'b', job_code: 'oil_change', kind: 'book' as const, model_year: null, make: null, model: null, engine: null, hours: 0.6, note: null, created_at: '2026-01-01', created_by: null }];
+  assert.equal(suggestedHours(book, focus, 'oil_change')?.hours, 0.6, 'shop book time wins');
+});

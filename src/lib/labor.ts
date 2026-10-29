@@ -6,6 +6,7 @@
  */
 
 import { matchVehicle, scopeFit, type Vehicle } from './vehicle.ts';
+import { rangeText, typicalFor } from '../data/laborTypical.ts';
 
 export type LaborEntry = {
   id: string;
@@ -87,15 +88,18 @@ export function actualSummary(entries: LaborEntry[], v: Vehicle | null): ActualS
 
 /**
  * The hours to quote: the shop's book time if set, otherwise the median of
- * what the job really took on this kind of vehicle, otherwise null.
+ * what the job really took on this kind of vehicle, otherwise AP Data's
+ * typical time for the job (when `code` is given), otherwise null.
  */
-export function suggestedHours(entries: LaborEntry[], v: Vehicle | null): { hours: number; basis: string } | null {
+export function suggestedHours(entries: LaborEntry[], v: Vehicle | null, code?: string): { hours: number; basis: string } | null {
   const book = bookHoursFor(entries, v);
   if (book) return { hours: book.hours, basis: book.make ? 'Shop book time for this vehicle' : 'Shop book time' };
   const s = actualSummary(entries, v);
   if (s.thisVehicle && s.thisVehicle.count >= 2) return { hours: s.thisVehicle.median, basis: `Median of ${s.thisVehicle.count} jobs on this model` };
   if (s.sameMake && s.sameMake.count >= 3) return { hours: s.sameMake.median, basis: `Median of ${s.sameMake.count} jobs on this make` };
   if (s.all && s.all.count >= 3) return { hours: s.all.median, basis: `Median of ${s.all.count} jobs, all vehicles` };
+  const t = code ? typicalFor(code, v?.engine) : null;
+  if (t) return { hours: t.hours, basis: `AP Data typical time (${rangeText(t)}${t.engine !== 'other' ? `, ${t.engine.toUpperCase()}` : ''}) — set a shop book time to replace it` };
   return null;
 }
 

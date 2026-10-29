@@ -1,6 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { Calculator, ChevronRight, Clock, Copy, Plus, Printer, Search, Timer, Trash2, X } from 'lucide-react';
 import { LABOR_JOBS, laborJob, searchLaborJobs } from '../data/laborJobs';
+import { rangeText, typicalFor } from '../data/laborTypical';
 import { SYSTEMS, systemInfo } from '../data/systems';
 import { useAsync } from '../lib/useAsync';
 import { useVehicle } from '../lib/vehicleStore';
@@ -59,6 +60,7 @@ export function LaborPage() {
                   <Link to={`/labor/${j.code}`} className="flex items-center gap-3 rounded-xl px-2 py-2.5 hover:bg-white/5">
                     <Clock className="h-4 w-4 shrink-0 text-slate-500" />
                     <span className="min-w-0 flex-1 text-[14px] text-slate-100">{j.name}</span>
+                    {!c?.book && typicalFor(j.code, vehicle?.engine) && <span className="shrink-0 text-xs text-slate-500">{rangeText(typicalFor(j.code, vehicle?.engine)!)}</span>}
                     {c?.book ? <Badge tone="orange">Book</Badge> : null}
                     {c?.actual ? <Badge>{c.actual} logged</Badge> : null}
                     <ChevronRight className="h-4 w-4 shrink-0 text-slate-600" />
@@ -109,7 +111,10 @@ export function LaborJobPage({ code }: { code: string }) {
   const list = entries.data ?? [];
   const book = bookHoursFor(list, vehicle);
   const actual = actualSummary(list, vehicle);
-  const suggestion = suggestedHours(list, vehicle);
+  const suggestion = suggestedHours(list, vehicle, code);
+  const typical = typicalFor(code, vehicle?.engine);
+  const shopRate = useAsync(() => fetchShopLaborRateCents(), []);
+  const rateCents = vehicle ? laborRateCentsForVehicle(vehicleTitle(vehicle) + (vehicle.engine ? ` ${vehicle.engine}` : ''), shopRate.data ?? 15000) : shopRate.data ?? 15000;
 
   const log = async (e: FormEvent) => {
     e.preventDefault();
@@ -170,11 +175,14 @@ export function LaborJobPage({ code }: { code: string }) {
       {entries.data && (
         <>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            <Stat label={book ? `Book · ${book.make ? scopeLabel(book) : 'all vehicles'}` : 'Book time'} value={book ? `${book.hours} h` : '—'} />
-            <Stat label="Shop median, this model" value={actual.thisVehicle ? `${actual.thisVehicle.median} h` : '—'} />
             <Stat label="Quote" value={suggestion ? `${suggestion.hours} h` : '—'} tone={suggestion ? 'green' : undefined} />
+            <Stat label="Labor at shop rate" value={suggestion ? dollars(Math.round(suggestion.hours * rateCents)) : '—'} />
+            <Stat label="Typical time" value={typical ? rangeText(typical) : '—'} />
+            <Stat label={book ? `Book · ${book.make ? scopeLabel(book) : 'all vehicles'}` : 'Shop book time'} value={book ? `${book.hours} h` : 'Not set'} />
+            <Stat label="Shop median, this model" value={actual.thisVehicle ? `${actual.thisVehicle.median} h` : 'None logged'} />
           </div>
-          {suggestion && <p className="text-xs text-slate-500">Quote basis: {suggestion.basis}.</p>}
+          {suggestion && <p className="text-xs text-slate-500">Quote basis: {suggestion.basis}. Labor at {dollars(rateCents)}/h.</p>}
+          {typical?.note && <Notice>{typical.note}</Notice>}
 
           {vehicle ? (
             <Button variant="primary" onClick={toEstimate} icon={<Calculator className="h-4 w-4" />}>
@@ -338,7 +346,7 @@ function Estimate({ vehicle }: { vehicle: Vehicle }) {
     setAdding('');
     let hours = 1;
     try {
-      hours = suggestedHours(await laborForJob(code), vehicle)?.hours ?? 1;
+      hours = suggestedHours(await laborForJob(code), vehicle, code)?.hours ?? typicalFor(code, vehicle?.engine)?.hours ?? 1;
     } catch {
       /* no times available: start at 1 h and let the tech change it */
     }
@@ -385,9 +393,9 @@ function Estimate({ vehicle }: { vehicle: Vehicle }) {
       {entries.error && <ErrorNote message={entries.error} />}
 
       <Card className="space-y-3">
-        {lines.length === 0 && <p className="text-[13px] text-slate-400">Add the jobs for this vehicle. Hours start from the shop’s book time or the median of real times, and you can change them.</p>}
+        {lines.length === 0 && <p className="text-[13px] text-slate-400">Add the jobs for this vehicle. Hours start from the shop’s book time, the median of real times, or AP Data’s typical time — change them as needed.</p>}
         {lines.map((l) => {
-          const s = suggestedHours((entries.data ?? []).filter((e) => e.job_code === l.key), vehicle);
+          const s = suggestedHours((entries.data ?? []).filter((e) => e.job_code === l.key), vehicle, l.key);
           return (
             <div key={l.key} className="space-y-2 border-b border-white/5 pb-3">
               <div className="flex items-start justify-between gap-2">
