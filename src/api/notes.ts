@@ -31,7 +31,7 @@ export async function listVehicleNotes(v: Vehicle): Promise<VehicleNote[]> {
   }));
 }
 
-export async function addVehicleNote(v: Vehicle, note: string): Promise<void> {
+export async function addVehicleNote(v: Vehicle, note: string, jobRef?: string | null): Promise<void> {
   const text = note.trim();
   if (!text) throw new Error('Write the note first.');
   if (text.length > 4000) throw new Error('Notes are limited to 4,000 characters.');
@@ -42,6 +42,7 @@ export async function addVehicleNote(v: Vehicle, note: string): Promise<void> {
     model: v.model.trim(),
     vin: v.vin || null,
     note: text,
+    job_ref: jobRef && /^[A-Za-z0-9-]{3,40}$/.test(jobRef) ? jobRef : null,
     created_by: uid,
   });
   check(error, 'Could not save the note');

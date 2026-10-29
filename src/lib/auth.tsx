@@ -29,6 +29,31 @@ const AuthContext = createContext<AuthApi | null>(null);
 
 const NOT_STAFF = 'AP Data is for Adaptivity technicians and admins. This account is not one.';
 
+/**
+ * The last staff profile that signed in on this device. With no signal in the
+ * bay the profile lookup fails; the saved one (same user) keeps the tech signed
+ * in to the library, diagrams and anything already loaded.
+ */
+const STAFF_KEY = 'apdata.staff';
+
+function savedStaff(uid: string): Staff | null {
+  try {
+    const s = JSON.parse(window.localStorage.getItem(STAFF_KEY) ?? 'null') as Staff | null;
+    return s && s.id === uid && (s.role === 'admin' || s.role === 'tech') ? s : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveStaff(s: Staff | null) {
+  try {
+    if (s) window.localStorage.setItem(STAFF_KEY, JSON.stringify(s));
+    else window.localStorage.removeItem(STAFF_KEY);
+  } catch {
+    /* storage blocked: signs in online only */
+  }
+}
+
 async function staffFor(session: Session): Promise<Staff | 'not_staff' | 'error'> {
   const { data, error } = await supabase
     .from('profiles')
@@ -60,11 +85,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (current.current !== uid) return;
     if (staff === 'not_staff') {
       current.current = null;
+      saveStaff(null);
       await supabase.auth.signOut();
       setState({ status: 'signed_out', notice: NOT_STAFF });
     } else if (staff === 'error') {
-      setState({ status: 'signed_out', notice: 'Could not load your account. Check your connection and sign in again.' });
+      const offline = savedStaff(uid);
+      if (offline) setState({ status: 'signed_in', staff: offline });
+      else setState({ status: 'signed_out', notice: 'Could not load your account. Check your connection and sign in again.' });
     } else {
+      saveStaff(staff);
       setState({ status: 'signed_in', staff });
     }
   }, []);
@@ -92,6 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    saveStaff(null);
     await supabase.auth.signOut();
     setState({ status: 'signed_out', notice: null });
   }, []);

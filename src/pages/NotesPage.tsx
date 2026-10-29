@@ -8,6 +8,8 @@ import { vehicleKey, vehicleTitle, type Vehicle } from '../lib/vehicle';
 import { addVehicleNote, deleteVehicleNote, listVehicleNotes } from '../api/notes';
 import { NeedVehicle } from '../components/NeedVehicle';
 import { Button, Card, Empty, ErrorNote, Loading, Notice, Page, Textarea, shortDate } from '../components/ui';
+import { currentJob } from '../lib/jobStore';
+import { jobMatchesVehicle } from '../lib/jobLink';
 
 export function NotesPage() {
   const { vehicle } = useVehicle();
@@ -27,7 +29,8 @@ function Notes({ vehicle }: { vehicle: Vehicle }) {
     setBusy(true);
     setError(null);
     try {
-      await addVehicleNote(vehicle, draft);
+      const job = currentJob();
+      await addVehicleNote(vehicle, draft, job && jobMatchesVehicle(job, vehicle) ? job.ref : null);
       setDraft('');
       notes.reload();
     } catch (err) {

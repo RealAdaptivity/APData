@@ -2,11 +2,16 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 import {
   AlertTriangle,
   BookOpen,
+  Cable,
   Camera,
   Clock,
   ExternalLink,
   FileText,
+  FlaskConical,
   Gauge,
+  CalendarClock,
+  ChevronRight,
+  History,
   ListChecks,
   MapPin,
   ScanLine,
@@ -35,8 +40,12 @@ import { MAKE_DTC_ENTRIES } from '../data/dtcMakeCodes';
 import { LABOR_JOBS } from '../data/laborJobs';
 import { VehiclePicker } from '../components/VehiclePicker';
 import { COMPONENT_LOCATIONS } from '../data/locations';
+import { historyForVin } from '../api/history';
+import { MAINTENANCE } from '../data/maintenance';
 import { FAULTS } from '../data/faults';
-import { Button, Card, cx, Input, Notice, Page } from '../components/ui';
+import { COMPONENT_TESTS } from '../data/componentTests';
+import { pinoutsForVehicle } from '../api/pinouts';
+import { Button, Card, cx, Input, Notice, Page, shortDate } from '../components/ui';
 
 type Counts = {
   fixes: number | null;
@@ -44,16 +53,18 @@ type Counts = {
   specs: { total: number; verified: number } | null;
   files: number | null;
   notes: number | null;
+  pinouts: number | null;
   setupMissing: boolean;
 };
 
 async function shopCounts(v: Vehicle): Promise<Counts> {
-  const [fixes, procs, specs, files, notes] = await Promise.allSettled([
+  const [fixes, procs, specs, files, notes, pinouts] = await Promise.allSettled([
     fixesNearVehicle(v),
     listProcedures(),
     specsForVehicle(v),
     filesForVehicle(v),
     listVehicleNotes(v),
+    pinoutsForVehicle(v),
   ]);
   const setupMissing = [fixes, procs, specs, files].some((r) => r.status === 'rejected' && errorText(r.reason) === SETUP_MESSAGE);
   return {
@@ -68,6 +79,7 @@ async function shopCounts(v: Vehicle): Promise<Counts> {
         : null,
     files: files.status === 'fulfilled' ? files.value.length : null,
     notes: notes.status === 'fulfilled' ? notes.value.length : null,
+    pinouts: pinouts.status === 'fulfilled' ? pinouts.value.length : null,
     setupMissing,
   };
 }
@@ -117,7 +129,7 @@ function QuickDiagnose() {
     e.preventDefault();
     const codes = parseCodes(text);
     const rest = text.replace(/\b[PBCU][0-3][0-9A-F]{3}\b/gi, '').replace(/[,;]+/g, ' ').trim();
-    if (codes.length === 1 && !rest) navigate(`/codes/${codes[0]}`);
+    if (codes.length === 1 && !rest) navigate(`/search?q=${codes[0]}`);
     else if (codes.length) navigate(`/fixes?codes=${codes.join(',')}${rest ? `&q=${encodeURIComponent(rest)}` : ''}`);
     else if (text.trim()) navigate(`/fixes?q=${encodeURIComponent(text.trim())}`);
   };
@@ -134,6 +146,30 @@ function QuickDiagnose() {
         </Button>
       </form>
     </Card>
+  );
+}
+
+/** The VIN's last visits, so a repeat customer's history is the first thing a tech sees. */
+function HistoryStrip({ vin }: { vin: string }) {
+  const h = useAsync(() => historyForVin(vin), [vin]);
+  const entries = h.data?.entries ?? [];
+  const jobs = entries.filter((e) => e.kind === 'job').length;
+  const last = entries.find((e) => e.kind === 'fix' || e.kind === 'job' || e.kind === 'receipt');
+  return (
+    <Link to="/history" className="flex items-center gap-3 rounded-2xl border border-white/10 bg-panel p-3.5 hover:bg-panel-2">
+      <History className="h-5 w-5 shrink-0 text-brand" />
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-semibold text-white">
+          {h.loading ? 'Service history…' : jobs ? `Been in ${jobs} time${jobs === 1 ? '' : 's'}` : 'First visit — no history for this VIN'}
+        </span>
+        {last && (
+          <span className="block truncate text-xs text-slate-400">
+            Last: {shortDate(last.date)} · {last.title}
+          </span>
+        )}
+      </span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-slate-500" />
+    </Link>
   );
 }
 
@@ -154,6 +190,8 @@ function Dashboard({ vehicle }: { vehicle: Vehicle }) {
       {c?.setupMissing && <Notice tone="amber">{SETUP_MESSAGE}</Notice>}
 
       <QuickDiagnose />
+
+      {vehicle.vin && <HistoryStrip vin={vehicle.vin} />}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         <Tile
@@ -195,7 +233,10 @@ function Dashboard({ vehicle }: { vehicle: Vehicle }) {
           sub={c?.specs ? `${c.specs.verified} verified by a second tech` : 'Torque, fluids, capacities'}
         />
         <Tile to="/labor" icon={<Clock className="h-4 w-4" />} title="Labor guide" value={LABOR_JOBS.length} sub="Jobs with book time and real shop times" />
+        <Tile to="/maintenance" icon={<CalendarClock className="h-4 w-4" />} title="Maintenance" value={MAINTENANCE.length} sub="What is due at this mileage" />
         <Tile to="/faults" icon={<Wrench className="h-4 w-4" />} title="Faults" value={FAULTS.length} sub="No code? Start from the complaint" />
+        <Tile to="/testing" icon={<FlaskConical className="h-4 w-4" />} title="Component tests" value={COMPONENT_TESTS.length} sub="Guided tests with good readings" />
+        <Tile to="/pinouts" icon={<Cable className="h-4 w-4" />} title="Pinouts" value={dash(c?.pinouts)} sub="Shop-recorded connector pinouts" />
         <Tile to="/locations" icon={<MapPin className="h-4 w-4" />} title="Locations" value={COMPONENT_LOCATIONS.length} sub="Where parts are, cylinder and bank layout" />
         <Tile to="/files" icon={<Camera className="h-4 w-4" />} title="Shop files" value={dash(c?.files)} sub="Component photos, diagrams, PDFs" />
         <Tile to="/notes" icon={<StickyNote className="h-4 w-4" />} title="Shop notes" value={dash(c?.notes)} sub="Gotchas and part numbers" />

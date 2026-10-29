@@ -29,7 +29,7 @@ body {
   font-family: var(--font-heading);
 }
 
-/* A visible keyboard focus everywhere, in the brand colour. */
+/* A visible keyboard focus everywhere, in the brand color. */
 :focus-visible {
   outline: 2px solid #fd6a02;
   outline-offset: 2px;
