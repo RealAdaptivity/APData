@@ -41,6 +41,7 @@ import { LABOR_JOBS } from '../data/laborJobs';
 import { VehiclePicker } from '../components/VehiclePicker';
 import { COMPONENT_LOCATIONS } from '../data/locations';
 import { historyForVin } from '../api/history';
+import { summarize } from '../lib/vehicleReport';
 import { MAINTENANCE } from '../data/maintenance';
 import { FAULTS } from '../data/faults';
 import { COMPONENT_TESTS } from '../data/componentTests';
@@ -155,13 +156,17 @@ function HistoryStrip({ vin }: { vin: string }) {
   const entries = h.data?.entries ?? [];
   const jobs = entries.filter((e) => e.kind === 'job').length;
   const last = entries.find((e) => e.kind === 'fix' || e.kind === 'job' || e.kind === 'receipt');
+  const sum = summarize(h.data?.events ?? []);
+  const drop = (h.data?.odometer ?? []).some((o) => o.drop);
+  const warn = [sum.accidents ? `${sum.accidents} wreck${sum.accidents === 1 ? '' : 's'}` : '', ...sum.titleBrands, sum.flood ? 'flood' : '', sum.theft ? 'theft' : '', drop ? 'odometer went down' : ''].filter(Boolean);
   return (
     <Link to="/history" className="flex items-center gap-3 rounded-2xl border border-white/10 bg-panel p-3.5 hover:bg-panel-2">
       <History className="h-5 w-5 shrink-0 text-brand" />
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-semibold text-white">
-          {h.loading ? 'Service history…' : jobs ? `Been in ${jobs} time${jobs === 1 ? '' : 's'}` : 'First visit — no history for this VIN'}
+          {h.loading ? 'Vehicle history…' : jobs ? `Been in ${jobs} time${jobs === 1 ? '' : 's'}` : entries.length ? 'Vehicle history on file' : 'First visit — no history for this VIN'}
         </span>
+        {warn.length > 0 && <span className="block truncate text-xs font-semibold text-red-300">Recorded: {warn.join(' · ')}</span>}
         {last && (
           <span className="block truncate text-xs text-slate-400">
             Last: {shortDate(last.date)} · {last.title}

@@ -72,7 +72,7 @@ function UserMenu() {
           <MenuLink to="/testing" onClick={() => setOpen(false)}>Guided component tests</MenuLink>
           <MenuLink to="/pinouts" onClick={() => setOpen(false)}>Connector pinouts</MenuLink>
           <MenuLink to="/labor/estimate" onClick={() => setOpen(false)}>Labor estimate</MenuLink>
-          <MenuLink to="/history" onClick={() => setOpen(false)}>Service history by VIN</MenuLink>
+          <MenuLink to="/history" onClick={() => setOpen(false)}>Vehicle history by VIN</MenuLink>
           <MenuLink to="/maintenance" onClick={() => setOpen(false)}>Maintenance schedule</MenuLink>
           {staff.role === 'admin' && <MenuLink to="/owner" onClick={() => setOpen(false)}>Shop dashboard</MenuLink>}
           <InstallItem onDone={() => setOpen(false)} />
