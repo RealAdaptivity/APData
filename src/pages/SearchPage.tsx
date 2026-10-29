@@ -11,6 +11,7 @@ import { Link, navigate, type Route } from '../lib/router';
 import { searchFixes } from '../api/fixes';
 import { listProcedures } from '../api/procedures';
 import { FixCard } from '../components/FixCard';
+import { OneSearchTiles } from '../components/OneSearch';
 import { Empty, ErrorNote, Input, LinkButton, Loading, Page, Section } from '../components/ui';
 
 /** One box for everything: codes, built-in articles, shop procedures and confirmed fixes. */
@@ -37,7 +38,7 @@ export function SearchPage({ route }: { route: Route }) {
   const nothing = q && !codes.length && !faults.length && !articles.length && !shopProcs.length && !rankedFixes.length && !fixes.loading && !procs.loading;
 
   return (
-    <Page title="Search">
+    <Page title="1Search">
       <form onSubmit={submit} role="search">
         <label className="relative block">
           <span className="sr-only">Search</span>
@@ -45,7 +46,8 @@ export function SearchPage({ route }: { route: Route }) {
           <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="Code, symptom, part or procedure" className="pl-9" autoFocus />
         </label>
       </form>
-      {!q && <p className="text-[13px] text-slate-400">Search trouble codes, faults, how-to articles, shop procedures and confirmed fixes at once.</p>}
+      {!q && <p className="text-[13px] text-slate-400">1Search: one code or symptom, every answer — top repairs, causes, specs, guided tests, pinouts, locations, tips, wiring, procedures, labor and recalls.</p>}
+      {q && pasted.length <= 1 && <OneSearchTiles key={`${q}|${vehicle?.make ?? ''}`} q={q} vehicle={vehicle} />}
       {pasted.length > 1 && (
         <LinkButton to={`/fixes?codes=${pasted.join(',')}`} variant="primary" icon={<ThumbsUp className="h-4 w-4" />}>
           Find fixes with {pasted.join(', ')}

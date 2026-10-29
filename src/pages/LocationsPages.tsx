@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Camera, ChevronRight, Cog, MapPin, Search } from 'lucide-react';
+import { Cable, Camera, ChevronRight, Cog, FlaskConical, MapPin, Search } from 'lucide-react';
+import { operationFor, testsForComponent } from '../data/componentTests';
 import { Link } from '../lib/router';
 import { useVehicle } from '../lib/vehicleStore';
 import { useAsync } from '../lib/useAsync';
@@ -166,6 +167,33 @@ export function LocationDetailPage({ id }: { id: string }) {
         )}
         <p className="text-[11px] text-slate-500">Schematic, not to scale. Typical position — see what varies below.</p>
       </Card>
+
+      {operationFor(c.id) && (
+        <Section title="How it works">
+          <p className="text-[14px] leading-relaxed text-slate-200">{operationFor(c.id)}</p>
+        </Section>
+      )}
+
+      <Section title="Test it" aside="Guided component tests">
+        <ul className="-mx-2">
+          {testsForComponent(c.id).map((t) => (
+            <li key={t.id}>
+              <Link to={`/testing/${t.id}?component=${c.id}`} className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-white/5">
+                <FlaskConical className="h-4 w-4 shrink-0 text-brand" />
+                <span className="min-w-0 flex-1 text-[14px] text-slate-200">{t.name}</span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-slate-600" />
+              </Link>
+            </li>
+          ))}
+          <li>
+            <Link to={`/pinouts?component=${encodeURIComponent(c.aka[0] ?? c.name)}`} className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-white/5">
+              <Cable className="h-4 w-4 shrink-0 text-brand" />
+              <span className="min-w-0 flex-1 text-[14px] text-slate-200">Connector pinouts the shop recorded</span>
+              <ChevronRight className="h-4 w-4 shrink-0 text-slate-600" />
+            </Link>
+          </li>
+        </ul>
+      </Section>
 
       <Section title="Where it usually is">
         <p className="text-[15px] leading-relaxed text-slate-200">{c.where}</p>

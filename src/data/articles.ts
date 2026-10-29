@@ -558,7 +558,7 @@ export const ARTICLES: Article[] = [
       { title: 'Check level cold', detail: 'Check coolant level and condition. Oil in the coolant or coolant in the oil changes the plan.' },
       { title: 'Pressure the system', detail: 'Pump the tester to the pressure stamped on the radiator cap (not more). It should hold for several minutes. Look for drips at hoses, the water pump weep hole, radiator, heater hoses and the heater core area.' },
       { title: 'Test the cap', detail: 'Use the cap adapter to check the cap opens at its rated pressure and holds below it.' },
-      { title: 'Combustion leak test', detail: 'With the engine running and the coolant level slightly lowered, draw air from the radiator neck through the block tester fluid. A colour change (as the tester\'s instructions describe) means combustion gas in the coolant.' },
+      { title: 'Combustion leak test', detail: 'With the engine running and the coolant level slightly lowered, draw air from the radiator neck through the block tester fluid. A color change (as the tester\'s instructions describe) means combustion gas in the coolant.' },
       { title: 'Internal leak check', detail: 'If pressure drops with no external leak, look for coolant in the oil, white smoke from the exhaust, or a cylinder that shows coolant on the plug.' },
     ],
     results: [
@@ -627,7 +627,7 @@ export const ARTICLES: Article[] = [
       { title: 'Find the method', detail: 'Look up how this transmission is checked: dipstick, check plug, or a scan-tool level procedure.' },
       { title: 'Bring to temperature', detail: 'Run the engine until the fluid reaches the specified check temperature, shown on the scan tool.' },
       { title: 'Check level', detail: 'With the vehicle level, engine running and the selector moved through the gears as specified, check at the dipstick or check plug (on plug types, fluid should just trickle out at the correct level).' },
-      { title: 'Inspect the fluid', detail: 'Note colour, smell and debris. Burnt smell or heavy metal debris changes the conversation with the customer.' },
+      { title: 'Inspect the fluid', detail: 'Note color, smell and debris. Burnt smell or heavy metal debris changes the conversation with the customer.' },
       { title: 'Service', detail: 'Drain (and replace the filter / pan gasket if serviceable), refill with the exact specified fluid, and recheck the level at temperature.' },
       { title: 'Relearn if required', detail: 'Some transmissions need adaptive values reset or relearned after a fluid service or repair.' },
     ],

@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { BookOpen, MapPin, Wrench, ChevronDown, ChevronRight, Pencil, Plus, ScanLine, Search, ThumbsUp, Trash2 } from 'lucide-react';
+import { BookOpen, FlaskConical, LayoutGrid, MapPin, Trophy, Wrench, ChevronDown, ChevronRight, Pencil, Plus, ScanLine, Search, ThumbsUp, Trash2 } from 'lucide-react';
 import { CODE_RANGES, allEntries, describeCode, isMakeEntry, lookupCode, normalizeCode, parseCodes, searchCodes } from '../lib/dtc';
 import { makeEntriesFor, type MakeDtcEntry } from '../data/dtcMakeCodes';
 import { SEVERITY_LABEL, type DtcEntry, type Severity } from '../data/dtcLibrary';
@@ -373,6 +373,20 @@ export function CodeDetailPage({ code: raw }: { code: string }) {
         {entry && <Badge>{systemInfo(entry.system).label}</Badge>}
         {isMakeEntry(entry) && <Badge tone="green">{entry.makeLabel} meaning</Badge>}
         <Badge tone={structure.scope === 'generic' ? 'blue' : 'amber'}>{structure.scope === 'generic' ? 'Generic code' : 'Manufacturer code'}</Badge>
+      </div>
+
+      <div className="no-print flex flex-wrap gap-2">
+        <LinkButton to={`/top-repairs?q=${code}`} size="sm" variant="primary" icon={<Trophy className="h-3.5 w-3.5" />}>
+          Top repairs
+        </LinkButton>
+        <LinkButton to={`/search?q=${code}`} size="sm" icon={<LayoutGrid className="h-3.5 w-3.5" />}>
+          1Search
+        </LinkButton>
+        {locations[0] && (
+          <LinkButton to={`/testing?component=${locations[0].id}`} size="sm" icon={<FlaskConical className="h-3.5 w-3.5" />}>
+            Test the {locations[0].aka[0] ?? locations[0].name}
+          </LinkButton>
+        )}
       </div>
 
       {!entry && otherMakes.length > 0 && (

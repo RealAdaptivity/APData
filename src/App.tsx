@@ -22,6 +22,9 @@ import { GoPage } from './pages/JobPages';
 import { HistoryPage } from './pages/HistoryPage';
 import { MaintenancePage } from './pages/MaintenancePage';
 import { OwnerPage } from './pages/OwnerPage';
+import { TestDetailPage, TestingPage } from './pages/TestingPages';
+import { PinoutDetailPage, PinoutEditPage, PinoutNewPage, PinoutsPage } from './pages/PinoutsPages';
+import { TopRepairsPage } from './pages/TopRepairsPage';
 import { EngineLayoutPage, LocationDetailPage, LocationsPage } from './pages/LocationsPages';
 
 /** The route table. Paths live in the URL hash: #/codes/P0300. */
@@ -68,8 +71,17 @@ function screen(route: Route): ReactNode {
     case 'locations':
       if (!b) return <LocationsPage />;
       return b === 'engine' ? <EngineLayoutPage /> : <LocationDetailPage key={b} id={b} />;
+    case 'testing':
+      return b ? <TestDetailPage key={b + route.query.toString()} id={b} route={route} /> : <TestingPage key={route.query.toString()} route={route} />;
+    case 'pinouts':
+      if (!b) return <PinoutsPage key={route.query.toString()} route={route} />;
+      if (b === 'new') return <PinoutNewPage key={route.query.toString()} route={route} />;
+      return c === 'edit' ? <PinoutEditPage key={b} id={b} /> : <PinoutDetailPage key={b} id={b} />;
+    case 'top-repairs':
+      return <TopRepairsPage key={route.query.toString()} route={route} />;
     case 'notes':
       return <NotesPage />;
+    case '1search':
     case 'search':
       return <SearchPage key={route.query.toString()} route={route} />;
     case 'about':

@@ -2,10 +2,12 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 import {
   AlertTriangle,
   BookOpen,
+  Cable,
   Camera,
   Clock,
   ExternalLink,
   FileText,
+  FlaskConical,
   Gauge,
   CalendarClock,
   ChevronRight,
@@ -41,6 +43,8 @@ import { COMPONENT_LOCATIONS } from '../data/locations';
 import { historyForVin } from '../api/history';
 import { MAINTENANCE } from '../data/maintenance';
 import { FAULTS } from '../data/faults';
+import { COMPONENT_TESTS } from '../data/componentTests';
+import { pinoutsForVehicle } from '../api/pinouts';
 import { Button, Card, cx, Input, Notice, Page, shortDate } from '../components/ui';
 
 type Counts = {
@@ -49,16 +53,18 @@ type Counts = {
   specs: { total: number; verified: number } | null;
   files: number | null;
   notes: number | null;
+  pinouts: number | null;
   setupMissing: boolean;
 };
 
 async function shopCounts(v: Vehicle): Promise<Counts> {
-  const [fixes, procs, specs, files, notes] = await Promise.allSettled([
+  const [fixes, procs, specs, files, notes, pinouts] = await Promise.allSettled([
     fixesNearVehicle(v),
     listProcedures(),
     specsForVehicle(v),
     filesForVehicle(v),
     listVehicleNotes(v),
+    pinoutsForVehicle(v),
   ]);
   const setupMissing = [fixes, procs, specs, files].some((r) => r.status === 'rejected' && errorText(r.reason) === SETUP_MESSAGE);
   return {
@@ -73,6 +79,7 @@ async function shopCounts(v: Vehicle): Promise<Counts> {
         : null,
     files: files.status === 'fulfilled' ? files.value.length : null,
     notes: notes.status === 'fulfilled' ? notes.value.length : null,
+    pinouts: pinouts.status === 'fulfilled' ? pinouts.value.length : null,
     setupMissing,
   };
 }
@@ -122,7 +129,7 @@ function QuickDiagnose() {
     e.preventDefault();
     const codes = parseCodes(text);
     const rest = text.replace(/\b[PBCU][0-3][0-9A-F]{3}\b/gi, '').replace(/[,;]+/g, ' ').trim();
-    if (codes.length === 1 && !rest) navigate(`/codes/${codes[0]}`);
+    if (codes.length === 1 && !rest) navigate(`/search?q=${codes[0]}`);
     else if (codes.length) navigate(`/fixes?codes=${codes.join(',')}${rest ? `&q=${encodeURIComponent(rest)}` : ''}`);
     else if (text.trim()) navigate(`/fixes?q=${encodeURIComponent(text.trim())}`);
   };
@@ -228,6 +235,8 @@ function Dashboard({ vehicle }: { vehicle: Vehicle }) {
         <Tile to="/labor" icon={<Clock className="h-4 w-4" />} title="Labor guide" value={LABOR_JOBS.length} sub="Jobs with book time and real shop times" />
         <Tile to="/maintenance" icon={<CalendarClock className="h-4 w-4" />} title="Maintenance" value={MAINTENANCE.length} sub="What is due at this mileage" />
         <Tile to="/faults" icon={<Wrench className="h-4 w-4" />} title="Faults" value={FAULTS.length} sub="No code? Start from the complaint" />
+        <Tile to="/testing" icon={<FlaskConical className="h-4 w-4" />} title="Component tests" value={COMPONENT_TESTS.length} sub="Guided tests with good readings" />
+        <Tile to="/pinouts" icon={<Cable className="h-4 w-4" />} title="Pinouts" value={dash(c?.pinouts)} sub="Shop-recorded connector pinouts" />
         <Tile to="/locations" icon={<MapPin className="h-4 w-4" />} title="Locations" value={COMPONENT_LOCATIONS.length} sub="Where parts are, cylinder and bank layout" />
         <Tile to="/files" icon={<Camera className="h-4 w-4" />} title="Shop files" value={dash(c?.files)} sub="Component photos, diagrams, PDFs" />
         <Tile to="/notes" icon={<StickyNote className="h-4 w-4" />} title="Shop notes" value={dash(c?.notes)} sub="Gotchas and part numbers" />

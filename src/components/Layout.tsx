@@ -9,8 +9,8 @@ import { JobBar } from './JobBar';
 import { useInstall } from '../lib/install';
 
 const NAV = [
-  { to: '/', label: 'Vehicle', icon: Car, match: (p: string) => p === '/' || p.startsWith('/vehicle') || ['/recalls', '/problems', '/specs', '/files', '/notes', '/locations', '/history', '/maintenance'].some((x) => p.startsWith(x)) },
-  { to: '/codes', label: 'Codes', icon: ScanLine, match: (p: string) => p.startsWith('/codes') || p.startsWith('/faults') },
+  { to: '/', label: 'Vehicle', icon: Car, match: (p: string) => p === '/' || p.startsWith('/vehicle') || ['/recalls', '/problems', '/specs', '/files', '/notes', '/locations', '/history', '/maintenance', '/testing', '/pinouts'].some((x) => p.startsWith(x)) },
+  { to: '/codes', label: 'Codes', icon: ScanLine, match: (p: string) => p.startsWith('/codes') || p.startsWith('/faults') || p.startsWith('/top-repairs') },
   { to: '/fixes', label: 'Fixes', icon: ThumbsUp, match: (p: string) => p.startsWith('/fixes') },
   { to: '/repair', label: 'Repair', icon: BookOpen, match: (p: string) => p.startsWith('/repair') },
   { to: '/labor', label: 'Labor', icon: Clock, match: (p: string) => p.startsWith('/labor') },
@@ -69,6 +69,8 @@ function UserMenu() {
           <div className="my-1 h-px bg-white/10" />
           <MenuLink to="/notes" onClick={() => setOpen(false)}>Shop notes</MenuLink>
           <MenuLink to="/files" onClick={() => setOpen(false)}>Shop files</MenuLink>
+          <MenuLink to="/testing" onClick={() => setOpen(false)}>Guided component tests</MenuLink>
+          <MenuLink to="/pinouts" onClick={() => setOpen(false)}>Connector pinouts</MenuLink>
           <MenuLink to="/labor/estimate" onClick={() => setOpen(false)}>Labor estimate</MenuLink>
           <MenuLink to="/history" onClick={() => setOpen(false)}>Service history by VIN</MenuLink>
           <MenuLink to="/maintenance" onClick={() => setOpen(false)}>Maintenance schedule</MenuLink>
@@ -191,7 +193,7 @@ export function Layout({ route, children }: { route: Route; children: ReactNode 
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder="Code, symptom, procedure…"
+                placeholder="1Search: code, symptom, part…"
                 className="min-h-[40px] w-full rounded-xl border border-white/10 bg-panel pl-9 pr-3 text-sm text-white placeholder:text-slate-600 focus:border-brand/50 focus:outline-none"
               />
             </label>
